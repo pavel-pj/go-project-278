@@ -8,21 +8,26 @@ import (
 )
 
 func main() {
-	router := gin.Default()
-
-	// ====== YOUR FIRST ROUTE ======
-	// GET request to "/"
-	router.GET("/", func(c *gin.Context) {
-		// Send JSON response
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Hello, Gin!",
-			"status":  "success",
-		})
-	})
+	router := setupRouter()
+	router = pingHandler(router)
 
 	// Run server (blocks until stopped)
 	err := router.Run(":8080")
 	if err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
+}
+
+func setupRouter() *gin.Engine {
+	router := gin.Default()
+	return router
+}
+
+func pingHandler(router *gin.Engine) *gin.Engine {
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
+	return router
 }
