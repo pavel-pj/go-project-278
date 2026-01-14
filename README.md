@@ -1,5 +1,8 @@
 ### Hexlet tests and linter status:
 [![Actions Status](https://github.com/pavel-pj/go-project-278/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/pavel-pj/go-project-278/actions)
 
-### Test & linter:
-[![tests & lint](https://github.com/pavel-pj/go-project-278/actions/workflows/main.yml/badge.svg)](https://github.com/pavel-pj/go-project-278/actions/workflows/main.yml)
+### Linter:
+[![linter](https://github.com/pavel-pj/go-project-278/actions/workflows/lint.yml/badge.svg)](https://github.com/pavel-pj/go-project-278/actions/workflows/lint.yml)
+
+### Test:
+[![tests](https://github.com/pavel-pj/go-project-278/actions/workflows/test.yml/badge.svg)](https://github.com/pavel-pj/go-project-278/actions/workflows/test.yml)
