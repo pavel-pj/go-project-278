@@ -1,0 +1,26 @@
+# .golangci.yml - минимальная версия
+
+run:
+  timeout: 3m
+  concurrency: 0  # использовать все ядра
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+
+output:
+  formats: colored-line-number
