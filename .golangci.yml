@@ -1,4 +1,4 @@
-version: "2"
+# .golangci.yml
 
 run:
   timeout: 5m
@@ -7,10 +7,9 @@ linters:
   enable:
     - errcheck
     - govet
-    - staticcheck    # включает typecheck автоматически
+    - staticcheck
     - gofmt
     - goimports
-    # Дополнительные (по желанию):
     - gosimple
     - ineffassign
     - unused
