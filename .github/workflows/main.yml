@@ -3,7 +3,7 @@ name: tests & lint
 on:
   push:
     branches: [main]
- jobs:
+jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
