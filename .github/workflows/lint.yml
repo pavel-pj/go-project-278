@@ -1,4 +1,4 @@
-name: tests
+name: linter
 
 on:
   push:
@@ -21,8 +21,7 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:
-        version: v2.1.0  # Убедись что используешь актуальную версию!
+        version: v2.1.0   
         args: --timeout=5m
-        # или так, чтобы использовать make:
-        # args: --timeout=5m ./...
+
   
