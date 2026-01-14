@@ -1,4 +1,4 @@
-# .golangci.yml - минимальная версия
+version: "2"
 
 run:
   timeout: 3m
