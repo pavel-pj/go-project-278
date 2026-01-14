@@ -1,6 +1,8 @@
+// main содержит точку входа в приложение и настройку роутинга.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +17,8 @@ func TestPingHandler(t *testing.T) {
 	router = pingHandler(router)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/ping", nil)
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, "GET", "/ping", nil)
 	router.ServeHTTP(w, req)
 
 	var response map[string]string
