@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # 3) Runtime
 FROM alpine:3.22
 
+RUN apk add --no-cache bash
+
 WORKDIR /app
 
 COPY --from=backend-builder /build/app /app/bin/app
