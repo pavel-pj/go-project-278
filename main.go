@@ -24,6 +24,7 @@ func main() {
 
 func setupRouter() *gin.Engine {
   sentryDSN := os.Getenv("SENTRY_DSN")
+	
 	// To initialize Sentry's handler, you need to initialize Sentry itself beforehand
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn: sentryDSN// "https://df657a4b3d27b8a40709ced96e15c4a8@o4510775359832064.ingest.us.sentry.io/4510775423270912",
