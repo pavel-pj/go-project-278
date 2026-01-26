@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/getsentry/sentry-go"
 	sentrygin "github.com/getsentry/sentry-go/gin"
@@ -23,11 +24,11 @@ func main() {
 }
 
 func setupRouter() *gin.Engine {
-  sentryDSN := os.Getenv("SENTRY_DSN")
-	
+	sentryDSN := os.Getenv("SENTRY_DSN")
+	// "https://df657a4b3d27b8a40709ced96e15c4a8@o4510775359832064.ingest.us.sentry.io/4510775423270912",
 	// To initialize Sentry's handler, you need to initialize Sentry itself beforehand
 	if err := sentry.Init(sentry.ClientOptions{
-		Dsn: sentryDSN// "https://df657a4b3d27b8a40709ced96e15c4a8@o4510775359832064.ingest.us.sentry.io/4510775423270912",
+		Dsn: sentryDSN,
 	}); err != nil {
 		fmt.Printf("Sentry initialization failed: %v\n", err)
 	}
@@ -44,17 +45,20 @@ func pingHandler(router *gin.Engine) *gin.Engine {
 	router.GET("/ping", func(c *gin.Context) {
 		panic("Тестовая паника для Sentry!")
 		//c.JSON(500, gin.H{"error": "Что-то сломалось"})
-		//sentry.CaptureMessage("It works!")
+		//sentry.CaptureMessage("ERROR")
 		/*c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})*/
 	})
 
-	func pingErr1(router *gin.Engine) *gin.Engine {
+	return router
+}
+
+func pingErr1(router *gin.Engine) *gin.Engine {
 	router.GET("/err1", func(c *gin.Context) {
-	 
-		 //c.JSON(500, gin.H{"error": "Что-то сломалось"})
-	   sentry.CaptureMessage("It works!")
+
+		//c.JSON(500, gin.H{"error": "Что-то сломалось"})
+		sentry.CaptureMessage("It works!")
 		/*c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})*/
