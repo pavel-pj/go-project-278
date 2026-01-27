@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/getsentry/sentry-go"
@@ -43,12 +44,12 @@ func setupRouter() *gin.Engine {
 
 func pingHandler(router *gin.Engine) *gin.Engine {
 	router.GET("/ping", func(c *gin.Context) {
-		panic("Тестовая паника для Sentry!")
+		//panic("Тестовая паника для Sentry!")
 		//c.JSON(500, gin.H{"error": "Что-то сломалось"})
 		//sentry.CaptureMessage("ERROR")
-		/*c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
-		})*/
+		})
 	})
 
 	return router

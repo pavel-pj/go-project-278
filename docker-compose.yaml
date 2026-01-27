@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5500:5432"
+    networks:
+      - app-network
+
+  backend:
+    build: 
+      context: .
+      dockerfile: ./docker/development/Dockerfile
+    ports:
+      - "8200:8080"   
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      # ДЛЯ GOOSE:
+      #GOOSE_DRIVER: postgres
+      #GOOSE_DBSTRING: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/app   
+    restart: unless-stopped
+    networks:
+      - app-network
+    # Добавь для отладки:
+    stdin_open: true
+    tty: true
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

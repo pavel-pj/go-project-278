@@ -1,0 +1,13 @@
+version: "2"
+
+sql:
+  - engine: "postgresql"   
+    schema: "db/migrations/products"
+    queries: "queries/products"
+    gen:
+      go:
+        package: "productsdb"
+        out: "internal/db/products"
+        emit_interface: true
+        #sql_package: "database/sql"  
+  
