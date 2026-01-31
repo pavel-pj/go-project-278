@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/getsentry/sentry-go"
 	sentrygin "github.com/getsentry/sentry-go/gin"
@@ -24,8 +25,8 @@ func main() {
 }
 
 func setupRouter() *gin.Engine {
-	//sentryDSN := os.Getenv("SENTRY_DSN")
-	sentryDSN := "https://df657a4b3d27b8a40709ced96e15c4a8@o4510775359832064.ingest.us.sentry.io/4510775423270912"
+	sentryDSN := os.Getenv("SENTRY_DSN")
+	//sentryDSN := "https://df657a4b3d27b8a40709ced96e15c4a8@o4510775359832064.ingest.us.sentry.io/4510775423270912"
 	// To initialize Sentry's handler, you need to initialize Sentry itself beforehand
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn: sentryDSN,
