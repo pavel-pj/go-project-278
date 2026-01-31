@@ -2,12 +2,13 @@ version: "2"
 
 sql:
   - engine: "postgresql"   
-    schema: "db/migrations/products"
-    queries: "queries/products"
+    schema: "db/schema/links.sql"
+    queries: "queries/links"
     gen:
       go:
-        package: "productsdb"
-        out: "internal/db/products"
+        package: "linksdb"
+        out: "internal/db/links"
         emit_interface: true
         #sql_package: "database/sql"  
+          
   
