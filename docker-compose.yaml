@@ -17,7 +17,7 @@ services:
       context: .
       dockerfile: ./docker/development/Dockerfile
     ports:
-      - "8200:8080"   
+      - "8080:8080"   
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
