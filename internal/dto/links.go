@@ -8,7 +8,7 @@ import (
 type CreateLinkRequest struct {
 	OriginalUrl string `json:"original_url" binding:"required,url"`
 	ShortName   string `json:"short_name"`
-	ShortUrl    string `json:"short_url" binding:"required,url"`
+	ShortUrl    string `json:"short_url"`
 }
 
 // ToCreateLinkParams конвертирует DTO в sqlc структуру

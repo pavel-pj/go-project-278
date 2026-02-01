@@ -40,3 +40,19 @@ func (q *Queries) GetAllLinks(ctx context.Context) ([]Link, error) {
 	}
 	return items, nil
 }
+
+const getLink = `-- name: GetLink :one
+SELECT id, original_url, short_name, short_url FROM links where id = ($1)
+`
+
+func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLink, id)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+	)
+	return i, err
+}

@@ -24,3 +24,12 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) error {
 	_, err := q.db.ExecContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
 	return err
 }
+
+const deleteLink = `-- name: DeleteLink :exec
+DELETE from links where id =$1
+`
+
+func (q *Queries) DeleteLink(ctx context.Context, id int32) error {
+	_, err := q.db.ExecContext(ctx, deleteLink, id)
+	return err
+}

@@ -25,3 +25,11 @@ func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParam
 func (s *LinkService) GetAllLinks(ctx context.Context) ([]linksdb.Link, error) {
 	return s.queries.GetAllLinks(ctx)
 }
+
+func (s *LinkService) GetLink(ctx context.Context, id int32) (linksdb.Link, error) {
+	return s.queries.GetLink(ctx, id)
+}
+
+func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
+	return s.queries.DeleteLink(ctx, id)
+}
