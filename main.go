@@ -16,9 +16,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Database Error: ", err)
 	}
-
 	app := app.NewApp(db)
-
 	router := r.NewRouter(app)
 
 	// Run server (blocks until stopped)
