@@ -7,29 +7,20 @@ package linksdb
 
 import (
 	"context"
-	"database/sql"
 )
 
-const createLink = `-- name: CreateLink :one
+const createLink = `-- name: CreateLink :exec
 INSERT INTO links (original_url,short_name ,short_url)
 values($1,$2,$3)
-RETURNING id,original_url,short_name ,short_url
 `
 
 type CreateLinkParams struct {
 	OriginalUrl string
-	ShortName   sql.NullString
+	ShortName   string
 	ShortUrl    string
 }
 
-func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
-	var i Link
-	err := row.Scan(
-		&i.ID,
-		&i.OriginalUrl,
-		&i.ShortName,
-		&i.ShortUrl,
-	)
-	return i, err
+func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) error {
+	_, err := q.db.ExecContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
+	return err
 }

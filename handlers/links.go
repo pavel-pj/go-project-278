@@ -30,14 +30,14 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	}
 
 	// Генерируем короткий URL (если не указан)
-	if req.ShortUrl == "" {
-		req.ShortUrl = generateShortURL()
+	if req.ShortName == "" {
+		req.ShortName = "exmpl"
 	}
 
 	params := req.ToCreateLinkParams()
 
 	// ВЫЗЫВАЕМ СЕРВИС
-	link, err := h.service.Create(c.Request.Context(), params)
+	err := h.service.Create(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create link: " + err.Error(),
@@ -45,16 +45,21 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	response := dto.FromLink(link)
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Link created successfully",
-		"data":    response,
-	})
+	c.Status(http.StatusCreated)
 
 }
 
-// Генерация короткого URL (заглушка)
-func generateShortURL() string {
-	return "https://short.ly/abc123" // TODO: реальная логика
+func (h *LinkHandler) GetAllLinks(c *gin.Context) {
+	response, err := h.service.GetAllLinks(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create link: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK,
+		response,
+	)
+
 }

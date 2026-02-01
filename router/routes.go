@@ -13,5 +13,6 @@ func registerRoutes(router *gin.Engine, app *app.App) {
 
 	router.GET("/ping", h.PingHandler)
 	router.POST("/api/links", linkHandler.Create)
+	router.GET("/api/links", linkHandler.GetAllLinks)
 
 }

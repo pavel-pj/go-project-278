@@ -9,7 +9,8 @@ import (
 )
 
 type Querier interface {
-	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
+	CreateLink(ctx context.Context, arg CreateLinkParams) error
+	GetAllLinks(ctx context.Context) ([]Link, error)
 }
 
 var _ Querier = (*Queries)(nil)

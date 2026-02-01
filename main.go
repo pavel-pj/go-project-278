@@ -16,6 +16,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Database Error: ", err)
 	}
+	defer db.Close()
+
 	app := app.NewApp(db)
 	router := r.NewRouter(app)
 

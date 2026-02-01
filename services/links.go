@@ -17,7 +17,11 @@ func NewLinkService(queries *linksdb.Queries) *LinkService {
 	}
 }
 
-func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParams) (linksdb.Link, error) {
+func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParams) error {
 
 	return s.queries.CreateLink(ctx, params)
+}
+
+func (s *LinkService) GetAllLinks(ctx context.Context) ([]linksdb.Link, error) {
+	return s.queries.GetAllLinks(ctx)
 }
