@@ -1,6 +1,7 @@
 package router
 
 import (
+	"db200/internal/app"
 	"fmt"
 	"os"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter() *gin.Engine {
+func NewRouter(app *app.App) *gin.Engine {
 	// Инициализация Sentry
 	sentryDSN := os.Getenv("SENTRY_DSN")
 	if sentryDSN != "" {
@@ -30,13 +31,7 @@ func NewRouter() *gin.Engine {
 	}
 
 	// Регистрация роутов
-	registerRoutes(router)
+	registerRoutes(router, app)
 
 	return router
-}
-
-func registerRoutes(router *gin.Engine) {
-	router.GET("/ping", pingHandler)
-	router.POST("/api/links", linkCreateHandler)
-
 }

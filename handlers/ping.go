@@ -1,4 +1,4 @@
-package router
+package handlers
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func linkCreateHandler(c *gin.Context) {
+func PingHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message": "CreateLink",
+		"message": "pong",
 	})
 }

@@ -9,7 +9,8 @@ RUN apk add --no-cache curl tar postgresql-client git
 # Устанавливаем goose, air, sqlc (ТОЛЬКО для сборки!)
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest && \
     go install github.com/air-verse/air@latest && \
-    go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+    go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest && \
+    go get github.com/jackc/pgx/v5/stdlib
 
 # Копируем зависимости
 COPY go.mod go.sum ./
