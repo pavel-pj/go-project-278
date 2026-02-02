@@ -10,7 +10,7 @@ import (
 )
 
 const getAllLinks = `-- name: GetAllLinks :many
-SELECT id, original_url, short_name, short_url FROM links
+SELECT id, original_url, short_name, short_url, created_at FROM links
 `
 
 func (q *Queries) GetAllLinks(ctx context.Context) ([]Link, error) {
@@ -27,6 +27,7 @@ func (q *Queries) GetAllLinks(ctx context.Context) ([]Link, error) {
 			&i.OriginalUrl,
 			&i.ShortName,
 			&i.ShortUrl,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -42,7 +43,7 @@ func (q *Queries) GetAllLinks(ctx context.Context) ([]Link, error) {
 }
 
 const getLink = `-- name: GetLink :one
-SELECT id, original_url, short_name, short_url FROM links where id = ($1)
+SELECT id, original_url, short_name, short_url, created_at FROM links where id = ($1)
 `
 
 func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
@@ -53,12 +54,13 @@ func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
 		&i.OriginalUrl,
 		&i.ShortName,
 		&i.ShortUrl,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getLinkByOriginUrl = `-- name: GetLinkByOriginUrl :one
-SELECT id, original_url, short_name, short_url FROM links where original_url = ($1)
+SELECT id, original_url, short_name, short_url, created_at FROM links where original_url = ($1)
 `
 
 func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (Link, error) {
@@ -69,12 +71,13 @@ func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (L
 		&i.OriginalUrl,
 		&i.ShortName,
 		&i.ShortUrl,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getLinkByShortName = `-- name: GetLinkByShortName :one
-SELECT id, original_url, short_name, short_url FROM links where short_name = ($1)
+SELECT id, original_url, short_name, short_url, created_at FROM links where short_name = ($1)
 `
 
 func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Link, error) {
@@ -85,6 +88,7 @@ func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Lin
 		&i.OriginalUrl,
 		&i.ShortName,
 		&i.ShortUrl,
+		&i.CreatedAt,
 	)
 	return i, err
 }

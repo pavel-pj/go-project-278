@@ -4,9 +4,14 @@
 
 package linksdb
 
+import (
+	"database/sql"
+)
+
 type Link struct {
 	ID          int32
 	OriginalUrl string
 	ShortName   string
 	ShortUrl    string
+	CreatedAt   sql.NullTime
 }

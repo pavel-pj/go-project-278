@@ -75,7 +75,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		ShortUrl:    req.ShortUrl,
 	}
 
-	link, err := h.service.Create(c.Request.Context(), params)
+	r, err := h.service.Create(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create a new link",
@@ -83,17 +83,36 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, link)
+	response := dto.LinkResponse{
+		ID:          r.ID,
+		OriginalUrl: r.OriginalUrl,
+		ShortName:   r.ShortName,
+		ShortUrl:    r.ShortUrl,
+	}
+
+	c.JSON(http.StatusCreated, response)
 
 }
 
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
-	response, err := h.service.GetAllLinks(c.Request.Context())
+
+	r, err := h.service.GetAllLinks(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to create link: " + err.Error(),
 		})
 		return
+	}
+
+	// Преобразуем
+	response := make([]dto.LinkResponse, len(r))
+	for i, link := range r {
+		response[i] = dto.LinkResponse{
+			ID:          link.ID,
+			OriginalUrl: link.OriginalUrl,
+			ShortName:   link.ShortName,
+			ShortUrl:    link.ShortUrl,
+		}
 	}
 
 	c.JSON(http.StatusOK,
@@ -116,7 +135,7 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 
 	id := int32(id64)
 
-	response, err := h.service.GetLink(c.Request.Context(), id)
+	r, err := h.service.GetLink(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -124,20 +143,18 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 		return
 	}
 
+	response := dto.LinkResponse{
+		ID:          r.ID,
+		OriginalUrl: r.OriginalUrl,
+		ShortName:   r.ShortName,
+		ShortUrl:    r.ShortUrl,
+	}
+
 	c.JSON(http.StatusOK,
 		response,
 	)
 
 }
-
-/*
-func (h *LinkHandler) TestHandler(c *gin.Context) {
-	data := h.service.GenerateShortName(c.Request.Context())
-	c.JSON(http.StatusOK, gin.H{
-		"data": data,
-	})
-}
-*/
 
 func (h *LinkHandler) DeleteLink(c *gin.Context) {
 

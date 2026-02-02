@@ -2,5 +2,6 @@ CREATE TABLE links(
     id SERIAL PRIMARY KEY  ,
     original_url TEXT NOT NULL UNIQUE,
     short_name TEXT NOT NULL UNIQUE,
-    short_url TEXT NOT NULL UNIQUE
+    short_url TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
