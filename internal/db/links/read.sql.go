@@ -56,3 +56,35 @@ func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
 	)
 	return i, err
 }
+
+const getLinkByOriginUrl = `-- name: GetLinkByOriginUrl :one
+SELECT id, original_url, short_name, short_url FROM links where original_url = ($1)
+`
+
+func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByOriginUrl, originalUrl)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+	)
+	return i, err
+}
+
+const getLinkByShortName = `-- name: GetLinkByShortName :one
+SELECT id, original_url, short_name, short_url FROM links where short_name = ($1)
+`
+
+func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByShortName, shortName)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+	)
+	return i, err
+}

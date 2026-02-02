@@ -9,9 +9,10 @@ import (
 	"context"
 )
 
-const createLink = `-- name: CreateLink :exec
-INSERT INTO links (original_url,short_name ,short_url)
+const createLink = `-- name: CreateLink :one
+INSERT INTO links (original_url,short_name,short_url)
 values($1,$2,$3)
+RETURNING id, original_url, short_name, short_url
 `
 
 type CreateLinkParams struct {
@@ -20,9 +21,16 @@ type CreateLinkParams struct {
 	ShortUrl    string
 }
 
-func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) error {
-	_, err := q.db.ExecContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
-	return err
+func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+	)
+	return i, err
 }
 
 const deleteLink = `-- name: DeleteLink :exec

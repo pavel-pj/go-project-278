@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	linksdb "db200/internal/db/links"
 	"db200/internal/dto"
 	s "db200/services"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 type LinkHandler struct {
@@ -33,82 +33,57 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		})
 		return
 	}
-	shortNameByUser = req.ShortName
 
-	// Если пользователь не указал ShortName - генерируем
-	if req.ShortName == "" {
-		id, err := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 8)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to generate short URL",
-			})
-			return
-		}
-		req.ShortName = id
+	existing, err := h.service.GetByOriginalUrl(c.Request.Context(), req.OriginalUrl)
+	if err == nil {
+		// No error means URL was found (exists in DB)
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "This URL already has a shortened version",
+			"code":    "DUPLICATE_ORIGINAL_URL",
+			"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+		})
+		return
 	}
 
 	baseSite := os.Getenv("BASE_SITE")
 	if baseSite == "" {
 		baseSite = "https://base-site.com"
 	}
+
+	if req.ShortName != "" {
+		_, err = h.service.GetLinkByShortName(c.Request.Context(), req.ShortName)
+		if err == nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "20-This ShortName already has used for other URL",
+				"code":    "DUPLICATE_SHORT_NAME_URL",
+				"details": fmt.Sprintf("Short name: %s", req.ShortName),
+			})
+			return
+		}
+	} else {
+		// Generate a random short name
+		req.ShortName, err = h.service.GenerateShortName(c.Request.Context())
+	}
+
 	// Убираем trailing slash если есть
 	baseSite = strings.TrimSuffix(baseSite, "/")
 	req.ShortUrl = fmt.Sprintf("%s/%s", baseSite, req.ShortName)
 
-	params := req.ToCreateLinkParams()
-
-	// Пытаемся создать ссылку (до 10 попыток для уникальности)
-	var lastError error
-	for attempt := 0; attempt < 10; attempt++ {
-		err := h.service.Create(c.Request.Context(), params)
-		if err == nil {
-			// Успех!
-			c.Status(http.StatusCreated)
-			return
-		}
-
-		// Сохраняем ошибку
-		lastError = err
-
-		// Проверяем тип ошибки
-		if isDuplicateKeyError(err) {
-			// Если пользователь указал ShortName и он неуникальный
-			if shortNameByUser != "" {
-				c.JSON(http.StatusConflict, gin.H{
-					"error":   "Short name already taken",
-					"code":    "DUPLICATE_SHORT_NAME",
-					"details": "Please choose a different short name",
-				})
-				return
-			}
-
-			// Если автоматически сгенерированный неуникальный - генерируем новый
-			newShortName, genErr := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 8)
-			if genErr != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "Failed to generate unique short name",
-				})
-				return
-			}
-
-			// Обновляем параметры для следующей попытки
-			req.ShortName = newShortName
-			req.ShortUrl = fmt.Sprintf("%s/%s", baseSite, newShortName)
-			params = req.ToCreateLinkParams()
-
-			// Продолжаем цикл
-			continue
-		}
-
-		// Если не ошибка дубликата - выходим сразу
-		break
+	params := linksdb.CreateLinkParams{
+		OriginalUrl: req.OriginalUrl,
+		ShortName:   req.ShortName,
+		ShortUrl:    req.ShortUrl,
 	}
 
-	// Если дошли сюда - все попытки неудачны
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"error":   "Failed to create link after 10 attempts",
-		"details": lastError.Error(),
-	})
+	link, err := h.service.Create(c.Request.Context(), params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create a new link",
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, link)
 
 }
 
@@ -154,6 +129,15 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 	)
 
 }
+
+/*
+func (h *LinkHandler) TestHandler(c *gin.Context) {
+	data := h.service.GenerateShortName(c.Request.Context())
+	c.JSON(http.StatusOK, gin.H{
+		"data": data,
+	})
+}
+*/
 
 func (h *LinkHandler) DeleteLink(c *gin.Context) {
 
