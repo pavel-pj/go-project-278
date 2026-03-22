@@ -1,12 +1,16 @@
-name: tests
+# .github/workflows/test.yml
+name: Tests
 
 on:
   push:
+    branches: [main, develop]
+  pull_request:
     branches: [main]
-jobs:
+
   test:
-    name: Test
+    name: Integration Tests
     runs-on: ubuntu-latest
+    needs: lint
     
     steps:
     - name: Checkout code
@@ -17,17 +21,22 @@ jobs:
       with:
         go-version: '1.24'
         
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-          
-    - name: Run tests
+    - name: Download dependencies
       run: |
-        make test
-        # или напрямую
-        # go test -v -race ./...
+        go mod download
+        go mod verify
+        
+    - name: Run tests with testcontainers
+      run: |
+        go test -v -tags=integration -timeout 10m ./...
+      env:
+        BASE_SITE: https://test.com
+        
+    - name: Upload test coverage
+      if: always()
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        fail_ci_if_error: false
+
  
