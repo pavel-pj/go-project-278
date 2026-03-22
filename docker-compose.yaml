@@ -25,6 +25,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       BASE_SITE: ${BASE_SITE}
+      DOCKER_HOST: unix:///var/run/docker.sock
       # ДЛЯ GOOSE:
       #GOOSE_DRIVER: postgres
       #GOOSE_DBSTRING: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
@@ -32,6 +33,7 @@ services:
       - postgres
     volumes:
       - ./:/app   
+      - /var/run/docker.sock:/var/run/docker.sock  
     restart: unless-stopped
     networks:
       - app-network
