@@ -3,13 +3,8 @@ version: "2"
 run:
   timeout: 5m
   build-tags: []
-  skip-dirs:
-    - vendor
-    - bin
-    - gen
-  allow-parallel-runners: false
   modules-download-mode: readonly
-  buildvcs: false  # Объединяем все настройки run в одном месте
+  allow-parallel-runners: false
 
 linters:
   default: none
@@ -40,6 +35,10 @@ formatters:
     - goimports
 
 issues:
+  exclude-dirs:
+    - vendor
+    - bin
+    - gen
   exclude-rules:
     - path: _test\.go
       linters:
