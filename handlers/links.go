@@ -5,6 +5,7 @@ import (
 	linksdb "db200/internal/db/links"
 	"db200/internal/dto"
 	s "db200/services"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -280,6 +281,22 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 	}
 
 	id := int32(id64)
+
+	_, err = h.service.GetLink(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "Link not found",
+				"code":    "NOT_FOUND",
+				"details": fmt.Sprintf("Link with ID %d does not exist", id),
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to check link existence",
+		})
+		return
+	}
 
 	err = h.service.DeleteLink(c.Request.Context(), id)
 	if err != nil {
