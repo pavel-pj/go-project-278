@@ -1,4 +1,3 @@
-# .github/workflows/test.yml
 name: Tests
 
 on:
@@ -6,7 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
-
+    
+jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
