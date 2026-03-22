@@ -34,11 +34,17 @@ formatters:
     - gofmt
     - goimports
 
+# Directories to exclude from analysis
 issues:
-  exclude-dirs:
-    - vendor
-    - bin
-    - gen
+  exclude-dirs-use-default: false
+  include:
+    - "**/*.go"
+  # Exclude specific directories
+  exclude:
+    - "^vendor/"
+    - "^bin/"
+    - "^gen/"
+  # Rule-based exclusions
   exclude-rules:
     - path: _test\.go
       linters:
