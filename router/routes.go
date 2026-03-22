@@ -18,5 +18,6 @@ func registerRoutes(router *gin.Engine, app *app.App) {
 	router.GET("/api/links", linkHandler.GetAllLinks)
 	router.GET("/api/links/:id", linkHandler.GetLink)
 	router.DELETE("/api/links/:id", linkHandler.DeleteLink)
+	router.PUT("/api/links/:id", linkHandler.UpdateLink)
 
 }

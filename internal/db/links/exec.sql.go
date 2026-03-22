@@ -7,6 +7,7 @@ package linksdb
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createLink = `-- name: CreateLink :one
@@ -41,4 +42,31 @@ DELETE from links where id =$1
 func (q *Queries) DeleteLink(ctx context.Context, id int32) error {
 	_, err := q.db.ExecContext(ctx, deleteLink, id)
 	return err
+}
+
+const updateLink = `-- name: UpdateLink :one
+UPDATE links set 
+    original_url = COALESCE ($1,original_url ),
+    short_name = COALESCE($2,short_name)
+    where id = $3
+RETURNING id, original_url, short_name, short_url, created_at
+`
+
+type UpdateLinkParams struct {
+	OriginalUrl sql.NullString
+	ShortName   sql.NullString
+	ID          int32
+}
+
+func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, updateLink, arg.OriginalUrl, arg.ShortName, arg.ID)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+		&i.CreatedAt,
+	)
+	return i, err
 }

@@ -76,12 +76,60 @@ func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (L
 	return i, err
 }
 
+const getLinkByOriginUrlExludedId = `-- name: GetLinkByOriginUrlExludedId :one
+SELECT id, original_url, short_name, short_url, created_at FROM links 
+where original_url = ($1)
+and id != $2
+`
+
+type GetLinkByOriginUrlExludedIdParams struct {
+	OriginalUrl string
+	ID          int32
+}
+
+func (q *Queries) GetLinkByOriginUrlExludedId(ctx context.Context, arg GetLinkByOriginUrlExludedIdParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByOriginUrlExludedId, arg.OriginalUrl, arg.ID)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLinkByShortName = `-- name: GetLinkByShortName :one
 SELECT id, original_url, short_name, short_url, created_at FROM links where short_name = ($1)
 `
 
 func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Link, error) {
 	row := q.db.QueryRowContext(ctx, getLinkByShortName, shortName)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.ShortUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLinkByShortNameExcluedeId = `-- name: GetLinkByShortNameExcluedeId :one
+SELECT id, original_url, short_name, short_url, created_at FROM links 
+where short_name = ($1)
+and id != $2
+`
+
+type GetLinkByShortNameExcluedeIdParams struct {
+	ShortName string
+	ID        int32
+}
+
+func (q *Queries) GetLinkByShortNameExcluedeId(ctx context.Context, arg GetLinkByShortNameExcluedeIdParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByShortNameExcluedeId, arg.ShortName, arg.ID)
 	var i Link
 	err := row.Scan(
 		&i.ID,

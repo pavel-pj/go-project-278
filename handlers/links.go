@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	linksdb "db200/internal/db/links"
 	"db200/internal/dto"
 	s "db200/services"
@@ -91,6 +92,116 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, response)
+
+}
+
+func (h *LinkHandler) UpdateLink(c *gin.Context) {
+
+	idParam := c.Param("id")
+	id64, err := strconv.ParseInt(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid ID format",
+			"hint":  "ID must be a number",
+		})
+		return
+	}
+
+	id := int32(id64)
+
+	var req dto.UpdateLinkRequest
+
+	// Валидируем JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	baseSite := os.Getenv("BASE_SITE")
+	if baseSite == "" {
+		baseSite = "https://base-site.com"
+	}
+
+	if req.OriginalUrl != nil {
+		//проверка на уникальность адреса
+		existing, err := h.service.GetLinkByOriginUrlExludedId(c.Request.Context(),
+			linksdb.GetLinkByOriginUrlExludedIdParams{
+				ID:          id,
+				OriginalUrl: *req.OriginalUrl,
+			})
+
+		if err == nil {
+			// No error means URL was found (exists in DB)
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "This URL already has a shortened version",
+				"code":    "DUPLICATE_ORIGINAL_URL",
+				"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+			})
+			return
+		}
+	}
+	if req.ShortName != nil {
+		//проверка на уникальность shortName
+		existing, err := h.service.GetLinkByShortNameExludedId(
+			c.Request.Context(),
+			linksdb.GetLinkByShortNameExcluedeIdParams{
+				ID:        id,
+				ShortName: *req.ShortName,
+			})
+
+		if err == nil {
+			// No error means URL was found (exists in DB)
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "This SHORT NAME already has a shortened version",
+				"code":    "DUPLICATE_SHORT_NAME",
+				"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+			})
+			return
+		}
+	}
+
+	// Подготовка параметров для обновления
+	updateParams := linksdb.UpdateLinkParams{
+		ID: id,
+	}
+
+	// Устанавливаем значения только если они были переданы
+	if req.OriginalUrl != nil {
+		updateParams.OriginalUrl = sql.NullString{
+			String: *req.OriginalUrl,
+			Valid:  true,
+		}
+	}
+
+	if req.ShortName != nil {
+		updateParams.ShortName = sql.NullString{
+			String: *req.ShortName,
+			Valid:  true,
+		}
+	}
+
+	updateLink, err := h.service.UpdateLink(c.Request.Context(), updateParams)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"details": fmt.Sprintf("%s", err),
+		})
+		return
+
+	}
+
+	response := dto.LinkResponse{
+		ID:          updateLink.ID,
+		OriginalUrl: updateLink.OriginalUrl,
+		ShortName:   updateLink.ShortName,
+		ShortUrl:    updateLink.ShortUrl,
+	}
+
+	c.JSON(http.StatusOK,
+		response,
+	)
 
 }
 

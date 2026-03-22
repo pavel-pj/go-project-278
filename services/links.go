@@ -45,9 +45,20 @@ func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
 func (s *LinkService) GetByOriginalUrl(ctx context.Context, originalUrl string) (linksdb.Link, error) {
 	return s.queries.GetLinkByOriginUrl(ctx, originalUrl)
 }
+func (s *LinkService) GetLinkByOriginUrlExludedId(
+	ctx context.Context,
+	params linksdb.GetLinkByOriginUrlExludedIdParams) (linksdb.Link, error) {
+	return s.queries.GetLinkByOriginUrlExludedId(ctx, params)
+}
 
 func (s *LinkService) GetLinkByShortName(ctx context.Context, shortName string) (linksdb.Link, error) {
 	return s.queries.GetLinkByShortName(ctx, shortName)
+}
+
+func (s *LinkService) GetLinkByShortNameExludedId(
+	ctx context.Context,
+	params linksdb.GetLinkByShortNameExcluedeIdParams) (linksdb.Link, error) {
+	return s.queries.GetLinkByShortNameExcluedeId(ctx, params)
 }
 
 func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
@@ -72,4 +83,10 @@ func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
 
 	return "", ErrCannotGenerateUniqueName
 
+}
+
+func (s *LinkService) UpdateLink(
+	ctx context.Context,
+	params linksdb.UpdateLinkParams) (linksdb.Link, error) {
+	return s.queries.UpdateLink(ctx, params)
 }

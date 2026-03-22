@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"database/sql"
 	linksdb "db200/internal/db/links"
 )
 
@@ -28,4 +29,37 @@ func (r *CreateLinkRequest) ToCreateLinkParams() linksdb.CreateLinkParams {
 	}
 
 	return params
+}
+
+// UpdateLinkRequest - структура для JSON запроса
+type UpdateLinkRequest struct {
+	OriginalUrl *string `json:"original_url,omitempty" binding:"omitempty,url"` // валидация только если поле присутствует
+	ShortName   *string `json:"short_name,omitempty"`
+}
+
+// ToUpdateLinkParams конвертирует DTO в sqlc структуру
+func (r *UpdateLinkRequest) ToUpdateLinkParams(linkID int32) linksdb.UpdateLinkParams {
+	params := linksdb.UpdateLinkParams{
+		ID:          linkID,
+		OriginalUrl: sql.NullString{String: "", Valid: false},
+		ShortName:   sql.NullString{String: "", Valid: false},
+	}
+
+	// Проверяем, что поле присутствует и не пустое
+	if r.OriginalUrl != nil {
+		params.OriginalUrl = sql.NullString{
+			String: *r.OriginalUrl,
+			Valid:  true,
+		}
+	}
+
+	if r.ShortName != nil {
+		params.ShortName = sql.NullString{
+			String: *r.ShortName,
+			Valid:  true,
+		}
+	}
+
+	return params
+
 }

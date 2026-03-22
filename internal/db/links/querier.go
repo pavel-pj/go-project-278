@@ -14,7 +14,10 @@ type Querier interface {
 	GetAllLinks(ctx context.Context) ([]Link, error)
 	GetLink(ctx context.Context, id int32) (Link, error)
 	GetLinkByOriginUrl(ctx context.Context, originalUrl string) (Link, error)
+	GetLinkByOriginUrlExludedId(ctx context.Context, arg GetLinkByOriginUrlExludedIdParams) (Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (Link, error)
+	GetLinkByShortNameExcluedeId(ctx context.Context, arg GetLinkByShortNameExcluedeIdParams) (Link, error)
+	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
 }
 
 var _ Querier = (*Queries)(nil)
