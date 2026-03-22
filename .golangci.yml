@@ -2,43 +2,54 @@ version: "2"
 
 run:
   timeout: 5m
+  build-tags: []
+  skip-dirs:
+    - vendor
+    - bin
+    - gen
+  allow-parallel-runners: false
+  modules-download-mode: readonly
+  buildvcs: false  # Объединяем все настройки run в одном месте
 
 linters:
+  default: none
   enable:
-     # Основные (должны быть)
     - govet
     - staticcheck
     - errcheck
-    
-    # Популярные дополнительные
     - unused
     - ineffassign
-    
-    # Безопасность
     - gosec
     - bodyclose
     - noctx
-    
-    # Качество кода
     - gocyclo
     - goconst
     - gocritic
-    
-    # Стиль
     - revive
     - godot
     - godox
-    
-    # Производительность
     - prealloc
     - wastedassign
-    
-    # Ошибки
     - errorlint
     - nilerr
     - wrapcheck
- 
+
 formatters:
   enable:
-    - gofmt 
-    - goimports     
+    - gofmt
+    - goimports
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - noctx
+    - path: internal/linksdb/.*\.go
+      linters:
+        - wrapcheck
+        - errcheck
+        - gosec
+        - noctx
+      text: "sqlc generated file"

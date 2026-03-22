@@ -103,7 +103,10 @@ func configureDB(db *sql.DB) (*sql.DB, error) {
 
 	err := db.PingContext(ctx)
 	if err != nil {
-		db.Close()
+
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("database not reachable: %w, and failed to close: %w", err, closeErr)
+		}
 		return nil, fmt.Errorf("database not reachable: %w", err)
 	}
 

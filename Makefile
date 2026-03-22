@@ -31,7 +31,8 @@ right:
 	 sudo chown -R $$USER:$$USER ./
  
 lint:
-	golangci-lint run --timeout=5m ./...
+	@echo "Running golangci-lint in container..."
+	@docker compose exec -e GOFLAGS="-buildvcs=false" backend golangci-lint run --timeout=5m ./...
 
 ## build: Собрать бинарник
 build:

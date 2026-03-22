@@ -1,4 +1,3 @@
-// main go
 package main
 
 import (
@@ -16,8 +15,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Database Error: ", err)
 	}
-	defer db.Close()
-
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Warning: failed to close database connection: %v", err)
+		}
+	}()
 	app := app.NewApp(db)
 	router := r.NewRouter(app)
 

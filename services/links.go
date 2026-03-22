@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	linksdb "db200/internal/db/links"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -58,7 +59,12 @@ func (s *LinkService) GetLinkByShortName(ctx context.Context, shortName string) 
 func (s *LinkService) GetLinkByShortNameExludedId(
 	ctx context.Context,
 	params linksdb.GetLinkByShortNameExcluedeIdParams) (linksdb.Link, error) {
-	return s.queries.GetLinkByShortNameExcluedeId(ctx, params)
+	link, err := s.queries.GetLinkByShortNameExcluedeId(ctx, params)
+	if err != nil {
+		return linksdb.Link{}, fmt.Errorf("failed to update link with id %d: %w", params.ID, err)
+	}
+	return link, nil
+
 }
 
 func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
@@ -88,5 +94,9 @@ func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
 func (s *LinkService) UpdateLink(
 	ctx context.Context,
 	params linksdb.UpdateLinkParams) (linksdb.Link, error) {
-	return s.queries.UpdateLink(ctx, params)
+	link, err := s.queries.UpdateLink(ctx, params)
+	if err != nil {
+		return linksdb.Link{}, fmt.Errorf("failed to update link with id %d: %w", params.ID, err)
+	}
+	return link, nil
 }
