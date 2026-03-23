@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	linksdb "db200/internal/db/links"
 	"db200/services"
+	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -42,5 +43,9 @@ func NewApp(db *sql.DB) *App {
 
 // Close закрывает соединение с БД
 func (a *App) Close() error {
-	return a.DB.Close()
+
+	if closeErr := a.DB.Close(); closeErr != nil {
+		return fmt.Errorf("database not reachable: %w, and failed to close: %w", closeErr)
+	}
+	return nil
 }

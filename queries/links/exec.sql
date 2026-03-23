@@ -9,7 +9,8 @@ DELETE from links where id =$1;
 -- name: UpdateLink :one
 UPDATE links set 
     original_url = COALESCE (sqlc.narg(original_url),original_url ),
-    short_name = COALESCE(sqlc.narg(short_name),short_name)
+    short_name = COALESCE(sqlc.narg(short_name),short_name),
+    short_url = COALESCE(sqlc.narg(short_url), short_url)
     where id = sqlc.arg(id)
 RETURNING *;
 

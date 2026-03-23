@@ -47,19 +47,26 @@ func (q *Queries) DeleteLink(ctx context.Context, id int32) error {
 const updateLink = `-- name: UpdateLink :one
 UPDATE links set 
     original_url = COALESCE ($1,original_url ),
-    short_name = COALESCE($2,short_name)
-    where id = $3
+    short_name = COALESCE($2,short_name),
+    short_url = COALESCE($3, short_url)
+    where id = $4
 RETURNING id, original_url, short_name, short_url, created_at
 `
 
 type UpdateLinkParams struct {
 	OriginalUrl sql.NullString
 	ShortName   sql.NullString
+	ShortUrl    sql.NullString
 	ID          int32
 }
 
 func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, updateLink, arg.OriginalUrl, arg.ShortName, arg.ID)
+	row := q.db.QueryRowContext(ctx, updateLink,
+		arg.OriginalUrl,
+		arg.ShortName,
+		arg.ShortUrl,
+		arg.ID,
+	)
 	var i Link
 	err := row.Scan(
 		&i.ID,

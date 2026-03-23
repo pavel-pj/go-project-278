@@ -63,6 +63,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 			return
 		}
 	} else {
+
 		// Generate a random short name
 		req.ShortName, err = h.service.GenerateShortName(c.Request.Context())
 	}
@@ -120,15 +121,10 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		return
 	}
 
-	baseSite := os.Getenv("BASE_SITE")
-	if baseSite == "" {
-		baseSite = "https://base-site.com"
-	}
-
 	if req.OriginalUrl != nil {
 		//проверка на уникальность адреса
-		existing, err := h.service.GetLinkByOriginUrlExludedId(c.Request.Context(),
-			linksdb.GetLinkByOriginUrlExludedIdParams{
+		existing, err := h.service.GetLinkByOriginUrlExludedID(c.Request.Context(),
+			linksdb.GetLinkByOriginUrlExludedIDParams{
 				ID:          id,
 				OriginalUrl: *req.OriginalUrl,
 			})
@@ -145,9 +141,9 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 	}
 	if req.ShortName != nil {
 		//проверка на уникальность shortName
-		existing, err := h.service.GetLinkByShortNameExludedId(
+		existing, err := h.service.GetLinkByShortNameExludedID(
 			c.Request.Context(),
-			linksdb.GetLinkByShortNameExcluedeIdParams{
+			linksdb.GetLinkByShortNameExcluedeIDParams{
 				ID:        id,
 				ShortName: *req.ShortName,
 			})
@@ -179,6 +175,18 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 	if req.ShortName != nil {
 		updateParams.ShortName = sql.NullString{
 			String: *req.ShortName,
+			Valid:  true,
+		}
+
+		// Генерируем новый short_url
+		baseSite := os.Getenv("BASE_SITE")
+		if baseSite == "" {
+			baseSite = "https://base-site.com"
+		}
+		baseSite = strings.TrimSuffix(baseSite, "/")
+
+		updateParams.ShortUrl = sql.NullString{
+			String: baseSite + "/" + *req.ShortName,
 			Valid:  true,
 		}
 	}

@@ -10,12 +10,12 @@ SELECT * FROM links where original_url = ($1);
 -- name: GetLinkByShortName :one
 SELECT * FROM links where short_name = ($1);
 
--- name: GetLinkByOriginUrlExludedId :one
+-- name: GetLinkByOriginUrlExludedID :one
 SELECT * FROM links 
 where original_url = ($1)
 and id != $2;
 
--- name: GetLinkByShortNameExcluedeId :one
+-- name: GetLinkByShortNameExcluedeID :one
 SELECT * FROM links 
 where short_name = ($1)
 and id != $2;

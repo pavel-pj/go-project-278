@@ -1,3 +1,4 @@
+// Package dto provides data transfer objects for HTTP requests and responses.
 package dto
 
 import (

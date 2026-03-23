@@ -299,9 +299,11 @@ func TestUpdateLink(t *testing.T) {
 				link, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
 					OriginalUrl: "https://old.com",
 					ShortName:   "oldname",
+					ShortUrl:    "https://test.com/oldname",
 				})
+				//log.Println(fmt.Sprintf("Значение req.ShortName :%+v", link))
 				if err != nil {
-					t.Fatalf("Failed to create test link: %v", err)
+					t.Fatalf("Failed to update test link: %v", err)
 				}
 				return link.ID
 			},
@@ -316,6 +318,12 @@ func TestUpdateLink(t *testing.T) {
 				if response.ShortName != "oldname" {
 					t.Errorf("Expected short_name 'oldname', got '%s'", response.ShortName)
 				}
+				// Проверяем что short_url НЕ изменился
+				expectedShortUrl := "https://test.com/oldname"
+				//log.Println(fmt.Sprintf("RESPONSE :%+v", response))
+				if response.ShortUrl != expectedShortUrl {
+					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
+				}
 				// Проверяем в БД
 				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
@@ -323,6 +331,9 @@ func TestUpdateLink(t *testing.T) {
 				}
 				if link.OriginalUrl != "https://new.com" {
 					t.Errorf("DB check: expected original_url 'https://new.com', got '%s'", link.OriginalUrl)
+				}
+				if link.ShortUrl != expectedShortUrl {
+					t.Errorf("DB check: expected short_url '%s', got '%s'", expectedShortUrl, link.ShortUrl)
 				}
 			},
 		},
@@ -332,6 +343,7 @@ func TestUpdateLink(t *testing.T) {
 				link, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
 					OriginalUrl: "https://old.com",
 					ShortName:   "oldname",
+					ShortUrl:    "https://test.com/oldname",
 				})
 				if err != nil {
 					t.Fatalf("Failed to create test link: %v", err)
@@ -349,6 +361,11 @@ func TestUpdateLink(t *testing.T) {
 				if response.ShortName != "newname" {
 					t.Errorf("Expected short_name 'newname', got '%s'", response.ShortName)
 				}
+				// Проверяем что short_url обновился
+				expectedShortUrl := "https://test.com/newname"
+				if response.ShortUrl != expectedShortUrl {
+					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
+				}
 				// Проверяем в БД
 				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
@@ -356,6 +373,9 @@ func TestUpdateLink(t *testing.T) {
 				}
 				if link.ShortName != "newname" {
 					t.Errorf("DB check: expected short_name 'newname', got '%s'", link.ShortName)
+				}
+				if link.ShortUrl != expectedShortUrl {
+					t.Errorf("DB check: expected short_url '%s', got '%s'", expectedShortUrl, link.ShortUrl)
 				}
 			},
 		},
@@ -367,6 +387,7 @@ func TestUpdateLink(t *testing.T) {
 					ShortName:   "oldname",
 					ShortUrl:    "https://test.com/oldname",
 				})
+
 				if err != nil {
 					t.Fatalf("Failed to create test link: %v", err)
 				}
@@ -384,6 +405,11 @@ func TestUpdateLink(t *testing.T) {
 				if response.ShortName != "newname" {
 					t.Errorf("Expected short_name 'newname', got '%s'", response.ShortName)
 				}
+				// Проверяем что short_url обновился
+				expectedShortUrl := "https://test.com/newname"
+				if response.ShortUrl != expectedShortUrl {
+					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
+				}
 				// Проверяем в БД
 				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
@@ -394,6 +420,9 @@ func TestUpdateLink(t *testing.T) {
 				}
 				if link.ShortName != "newname" {
 					t.Errorf("DB check: expected short_name 'newname', got '%s'", link.ShortName)
+				}
+				if link.ShortUrl != expectedShortUrl {
+					t.Errorf("DB check: expected short_url '%s', got '%s'", expectedShortUrl, link.ShortUrl)
 				}
 			},
 		},
@@ -406,6 +435,7 @@ func TestUpdateLink(t *testing.T) {
 					ShortName:   "existing",
 					ShortUrl:    "https://test.com/existing",
 				})
+
 				if err != nil {
 					t.Fatalf("Failed to create existing link: %v", err)
 				}
@@ -507,6 +537,7 @@ func TestUpdateLink(t *testing.T) {
 				// Проверяем успешный ответ
 				if tt.expectedStatus == http.StatusOK && tt.checkResponse != nil {
 					var response dto.LinkResponse
+					//log.Println(fmt.Sprintf("Значение RESPONSE в ЦИКЛе idx %d:%+v", idx, response))
 					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 						t.Fatalf("Failed to parse response: %v", err)
 					}
