@@ -29,22 +29,6 @@ linters:
     - nilerr
     - wrapcheck
 
-linters-settings:
-  revive:
-    rules:
-      - name: var-naming
-        disabled: true
-      - name: exported
-        disabled: true
-      - name: package-comments
-        disabled: true
-      - name: comment-spacings
-        disabled: true
-  godot:
-    enabled: false
-  godox:
-    enabled: false
-
 formatters:
   enable:
     - gofmt
