@@ -10,6 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// NewRouter creates and configures a new Gin router with all necessary middleware
+// and routes. It initializes Sentry for error tracking if the SENTRY_DSN environment
+// variable is set. The router is pre-configured with default Gin middleware and
+// registered routes for the application.
 func NewRouter(app *app.App) *gin.Engine {
 	// Инициализация Sentry
 	sentryDSN := os.Getenv("SENTRY_DSN")

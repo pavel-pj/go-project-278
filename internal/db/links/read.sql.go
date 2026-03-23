@@ -59,12 +59,12 @@ func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
 	return i, err
 }
 
-const getLinkByOriginUrl = `-- name: GetLinkByOriginUrl :one
+const getLinkByOriginURL = `-- name: GetLinkByOriginURL :one
 SELECT id, original_url, short_name, short_url, created_at FROM links where original_url = ($1)
 `
 
-func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByOriginUrl, originalUrl)
+func (q *Queries) GetLinkByOriginURL(ctx context.Context, originalUrl string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByOriginURL, originalUrl)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -76,19 +76,19 @@ func (q *Queries) GetLinkByOriginUrl(ctx context.Context, originalUrl string) (L
 	return i, err
 }
 
-const getLinkByOriginUrlExludedID = `-- name: GetLinkByOriginUrlExludedID :one
+const getLinkByOriginURLExludedID = `-- name: GetLinkByOriginURLExludedID :one
 SELECT id, original_url, short_name, short_url, created_at FROM links 
 where original_url = ($1)
 and id != $2
 `
 
-type GetLinkByOriginUrlExludedIDParams struct {
+type GetLinkByOriginURLExludedIDParams struct {
 	OriginalUrl string
 	ID          int32
 }
 
-func (q *Queries) GetLinkByOriginUrlExludedID(ctx context.Context, arg GetLinkByOriginUrlExludedIDParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByOriginUrlExludedID, arg.OriginalUrl, arg.ID)
+func (q *Queries) GetLinkByOriginURLExludedID(ctx context.Context, arg GetLinkByOriginURLExludedIDParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByOriginURLExludedID, arg.OriginalUrl, arg.ID)
 	var i Link
 	err := row.Scan(
 		&i.ID,

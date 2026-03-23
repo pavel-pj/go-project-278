@@ -36,7 +36,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.service.GetByOriginalUrl(c.Request.Context(), req.OriginalUrl)
+	existing, err := h.service.GetByOriginalURL(c.Request.Context(), req.OriginalUrl)
 	if err == nil {
 		// No error means URL was found (exists in DB)
 		c.JSON(http.StatusConflict, gin.H{
@@ -66,6 +66,12 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 		// Generate a random short name
 		req.ShortName, err = h.service.GenerateShortName(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to generate unique short name",
+			})
+			return
+		}
 	}
 
 	// Убираем trailing slash если есть
@@ -122,9 +128,9 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 	}
 
 	if req.OriginalUrl != nil {
-		//проверка на уникальность адреса
-		existing, err := h.service.GetLinkByOriginUrlExludedID(c.Request.Context(),
-			linksdb.GetLinkByOriginUrlExludedIDParams{
+		// проверка на уникальность адреса
+		existing, err := h.service.GetLinkByOriginURLExludedID(c.Request.Context(),
+			linksdb.GetLinkByOriginURLExludedIDParams{
 				ID:          id,
 				OriginalUrl: *req.OriginalUrl,
 			})
@@ -140,7 +146,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		}
 	}
 	if req.ShortName != nil {
-		//проверка на уникальность shortName
+		// проверка на уникальность shortName
 		existing, err := h.service.GetLinkByShortNameExludedID(
 			c.Request.Context(),
 			linksdb.GetLinkByShortNameExcluedeIDParams{

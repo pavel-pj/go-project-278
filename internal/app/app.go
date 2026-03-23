@@ -45,7 +45,7 @@ func NewApp(db *sql.DB) *App {
 func (a *App) Close() error {
 
 	if closeErr := a.DB.Close(); closeErr != nil {
-		return fmt.Errorf("database not reachable: %w, and failed to close: %w", closeErr)
+		return fmt.Errorf("failed to close database: %w", closeErr)
 	}
 	return nil
 }

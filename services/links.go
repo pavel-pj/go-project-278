@@ -1,15 +1,20 @@
+// Package services provides business logic layer for handling link operations.
+// It encapsulates the database queries and implements validation, generation,
+// and other business rules for managing shortened links.
 package services
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	linksdb "db200/internal/db/links"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
+	"math/big"
 )
 
+// ErrCannotGenerateUniqueName is returned when the system fails to generate
+// a unique short name after multiple attempts.
 var (
 	ErrCannotGenerateUniqueName = errors.New("cannot generate unique short name")
 )
@@ -26,6 +31,8 @@ func NewLinkService(queries *linksdb.Queries) *LinkService {
 	}
 }
 
+// Create creates a new link in the database with the provided parameters.
+// It returns the created link and any error encountered during the operation.
 func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParams) (linksdb.Link, error) {
 
 	link, err := s.queries.CreateLink(ctx, params)
@@ -36,6 +43,8 @@ func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParam
 
 }
 
+// GetAllLinks retrieves all links from the database.
+// It returns a slice of links and any error encountered during the operation.
 func (s *LinkService) GetAllLinks(ctx context.Context) ([]linksdb.Link, error) {
 	links, err := s.queries.GetAllLinks(ctx)
 	if err != nil {
@@ -45,6 +54,8 @@ func (s *LinkService) GetAllLinks(ctx context.Context) ([]linksdb.Link, error) {
 
 }
 
+// GetLink retrieves a link from the database by its unique ID.
+// It returns the link and any error encountered during the operation.
 func (s *LinkService) GetLink(ctx context.Context, id int32) (linksdb.Link, error) {
 
 	link, err := s.queries.GetLink(ctx, id)
@@ -54,6 +65,8 @@ func (s *LinkService) GetLink(ctx context.Context, id int32) (linksdb.Link, erro
 	return link, nil
 }
 
+// DeleteLink removes a link from the database by its ID.
+// It returns an error if the deletion operation fails.
 func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
 	err := s.queries.DeleteLink(ctx, id)
 	if err != nil {
@@ -63,19 +76,23 @@ func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
 }
 
 // GetByOriginalURL retrieves a link by its original URL.
-func (s *LinkService) GetByOriginalUrl(ctx context.Context, originalUrl string) (linksdb.Link, error) {
-	link, err := s.queries.GetLinkByOriginUrl(ctx, originalUrl)
+func (s *LinkService) GetByOriginalURL(ctx context.Context, originalURL string) (linksdb.Link, error) {
+	link, err := s.queries.GetLinkByOriginURL(ctx, originalURL)
 	if err != nil {
-		return linksdb.Link{}, fmt.Errorf("failed to get link by orinal url: %s: %w", originalUrl, err)
+		return linksdb.Link{}, fmt.Errorf("failed to get link by orinal url: %s: %w", originalURL, err)
 	}
 	return link, nil
 
 }
-func (s *LinkService) GetLinkByOriginUrlExludedID(
-	ctx context.Context,
-	params linksdb.GetLinkByOriginUrlExludedIDParams) (linksdb.Link, error) {
 
-	link, err := s.queries.GetLinkByOriginUrlExludedID(ctx, params)
+// GetLinkByOriginURLExludedID retrieves a link by its original URL while excluding
+// a specific link ID from the search results. This is useful for checking if a URL
+// already exists when updating a link, excluding the current link being edited.
+func (s *LinkService) GetLinkByOriginURLExludedID(
+	ctx context.Context,
+	params linksdb.GetLinkByOriginURLExludedIDParams) (linksdb.Link, error) {
+
+	link, err := s.queries.GetLinkByOriginURLExludedID(ctx, params)
 	if err != nil {
 		return linksdb.Link{}, fmt.Errorf("failed get link by origin url:%s exluded id: %d: %w", params.OriginalUrl, params.ID, err)
 	}
@@ -83,6 +100,8 @@ func (s *LinkService) GetLinkByOriginUrlExludedID(
 
 }
 
+// GetLinkByShortName retrieves a link by its short name from the database.
+// It returns the link and any error encountered during the operation.
 func (s *LinkService) GetLinkByShortName(ctx context.Context, shortName string) (linksdb.Link, error) {
 	link, err := s.queries.GetLinkByShortName(ctx, shortName)
 	if err != nil {
@@ -107,27 +126,27 @@ func (s *LinkService) GetLinkByShortNameExludedID(
 
 // GenerateShortName create a unique URL for the link if a user doesnt provide a short_name param
 func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
-
-	//Generate a string
 	length := 10
 	base62Chars := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 	for attempt := 1; attempt <= 20; attempt++ {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		result := make([]byte, length)
 		for i := range result {
-			result[i] = base62Chars[r.Intn(len(base62Chars))]
+			// Генерируем случайное число от 0 до len(base62Chars)-1
+			num, err := rand.Int(rand.Reader, big.NewInt(int64(len(base62Chars))))
+			if err != nil {
+				return "", fmt.Errorf("failed to generate random number: %w", err)
+			}
+			result[i] = base62Chars[num.Int64()]
 		}
 
 		_, err := s.queries.GetLinkByShortName(ctx, string(result))
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			return string(result), nil
 		}
-
 	}
 
 	return "", ErrCannotGenerateUniqueName
-
 }
 
 // UpdateLink updates an existing link in the database.

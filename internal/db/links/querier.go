@@ -13,8 +13,8 @@ type Querier interface {
 	DeleteLink(ctx context.Context, id int32) error
 	GetAllLinks(ctx context.Context) ([]Link, error)
 	GetLink(ctx context.Context, id int32) (Link, error)
-	GetLinkByOriginUrl(ctx context.Context, originalUrl string) (Link, error)
-	GetLinkByOriginUrlExludedID(ctx context.Context, arg GetLinkByOriginUrlExludedIDParams) (Link, error)
+	GetLinkByOriginURL(ctx context.Context, originalUrl string) (Link, error)
+	GetLinkByOriginURLExludedID(ctx context.Context, arg GetLinkByOriginURLExludedIDParams) (Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (Link, error)
 	GetLinkByShortNameExcluedeID(ctx context.Context, arg GetLinkByShortNameExcluedeIDParams) (Link, error)
 	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)

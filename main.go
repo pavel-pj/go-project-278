@@ -20,13 +20,15 @@ func main() {
 			log.Printf("Warning: failed to close database connection: %v", err)
 		}
 	}()
+
 	app := app.NewApp(db)
 	router := r.NewRouter(app)
 
 	// Run server (blocks until stopped)
-	err = router.Run(":8080")
-	if err != nil {
-		log.Fatal("Server failed to start:", err)
+	if err := router.Run(":8080"); err != nil {
+		log.Printf("Server failed to start: %v", err)
+		// Дефер закроет БД автоматически перед выходом
+		return
 	}
 
 }
