@@ -147,3 +147,14 @@ func (q *Queries) GetLinkByShortNameExcluedeID(ctx context.Context, arg GetLinkB
 	)
 	return i, err
 }
+
+const getLinksCount = `-- name: GetLinksCount :one
+SELECT count(id) FROM links
+`
+
+func (q *Queries) GetLinksCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getLinksCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}

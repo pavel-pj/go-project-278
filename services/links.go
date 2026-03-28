@@ -51,7 +51,15 @@ func (s *LinkService) GetAllLinks(ctx context.Context, params linksdb.GetAllLink
 		return []linksdb.Link{}, fmt.Errorf("failed to get all links:  %w", err)
 	}
 	return links, nil
+}
 
+// GetLinksCount retrieves count of links from the database.
+func (s *LinkService) GetLinksCount(ctx context.Context) (int64, error) {
+	count, err := s.queries.GetLinksCount(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get all links:  %w", err)
+	}
+	return count, nil
 }
 
 // GetLink retrieves a link from the database by its unique ID.

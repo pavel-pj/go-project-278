@@ -17,6 +17,7 @@ type Querier interface {
 	GetLinkByOriginURLExludedID(ctx context.Context, arg GetLinkByOriginURLExludedIDParams) (Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (Link, error)
 	GetLinkByShortNameExcluedeID(ctx context.Context, arg GetLinkByShortNameExcluedeIDParams) (Link, error)
+	GetLinksCount(ctx context.Context) (int64, error)
 	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
 }
 

@@ -227,7 +227,11 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 	var limit int32
 	offset = 0
 	limit = 10
-	//Если есть параметр range
+
+	var start64 int64
+	var end64 int64
+
+	// Если есть параметр range
 	req.Range = c.Query("range")
 	if req.Range != "" {
 		// ПАРАМЕТР ЕСТЬ - парсим его
@@ -239,10 +243,12 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"invalid range format": req.Range,
 			})
+			return
 		}
+		var err1, err2 error
 
-		start, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
-		end, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+		start64, err1 = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 32)
+		end64, err2 = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 32)
 
 		if err1 != nil || err2 != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -251,15 +257,20 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 			return
 		}
 
-		if start < 0 || end < 0 || end <= start {
+		if start64 < 0 || end64 < 0 || end64 <= start64 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid range values t",
+				"error": "invalid range values",
 			})
 			return
 		}
 
-		offset = int32(start - 1)
-		limit = int32(end - start + 1)
+		// Конвертируем в int32 (безопасно, т.к. ParseInt ограничил битность)
+		offsetVal := start64 - 1
+		limitVal := end64 - start64 + 1
+
+		// Игнорируем предупреждение, если уверены в безопасности
+		offset = int32(offsetVal) // #nosec G115
+		limit = int32(limitVal)   // #nosec G115
 
 	}
 
@@ -267,6 +278,21 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 		Limit:  limit,
 		Offset: offset,
 	}
+
+	// Получаем общее количество записей (нужно для Content-Range)
+	totalCount, err := h.service.GetLinksCount(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get total count: " + err.Error(),
+		})
+		return
+	}
+
+	// Устанавливаем заголовок Content-Range
+	// Формат: links {start}-{end}/{total}
+
+	contentRange := fmt.Sprintf("links %d-%d/%d", start64, end64, totalCount)
+	c.Header("Content-Range", contentRange)
 
 	res, err := h.service.GetAllLinks(c.Request.Context(), params)
 	if err != nil {
