@@ -11,7 +11,7 @@ import (
 type Querier interface {
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
 	DeleteLink(ctx context.Context, id int32) error
-	GetAllLinks(ctx context.Context) ([]Link, error)
+	GetAllLinks(ctx context.Context, arg GetAllLinksParams) ([]Link, error)
 	GetLink(ctx context.Context, id int32) (Link, error)
 	GetLinkByOriginURL(ctx context.Context, originalUrl string) (Link, error)
 	GetLinkByOriginURLExludedID(ctx context.Context, arg GetLinkByOriginURLExludedIDParams) (Link, error)

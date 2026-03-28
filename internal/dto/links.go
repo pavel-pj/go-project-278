@@ -6,6 +6,11 @@ import (
 	linksdb "db200/internal/db/links"
 )
 
+// AllLinkRequest - структура для Index запроса
+type AllLinkRequest struct {
+	Range string
+}
+
 // CreateLinkRequest - структура для JSON запроса
 type CreateLinkRequest struct {
 	OriginalUrl string `json:"original_url" binding:"required,url"`

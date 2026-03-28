@@ -1,5 +1,8 @@
 -- name: GetAllLinks :many
-SELECT * FROM links;
+SELECT * FROM links
+ORDER BY id
+LIMIT $1 OFFSET $2;
+
 
 -- name: GetLink :one
 SELECT * FROM links where id = ($1);

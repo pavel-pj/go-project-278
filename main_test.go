@@ -169,17 +169,16 @@ func TestMain(m *testing.M) {
 // ==================== ТАБЛИЧНЫЕ ТЕСТЫ ====================
 
 // TestCreateLink - табличный тест для создания ссылок
-// TestCreateLink - табличный тест для создания ссылок
-// TestCreateLink - табличный тест для создания ссылок
+
 func TestCreateLink(t *testing.T) {
 	// Каждый подтест будет в своей транзакции
 	tests := []struct {
 		name           string
 		requestBody    dto.CreateLinkRequest
-		setupData      func(ctx context.Context, q *linksdb.Queries) // теперь принимает q
+		setupData      func(ctx context.Context, q *linksdb.Queries)
 		expectedStatus int
 		expectedCode   string
-		checkResponse  func(t *testing.T, response dto.LinkResponse, q *linksdb.Queries, ctx context.Context) // ← добавили ctx
+		checkResponse  func(t *testing.T, response dto.LinkResponse, q *linksdb.Queries, ctx context.Context)
 	}{
 		{
 			name: "Success - Create link with custom short name",
@@ -200,7 +199,7 @@ func TestCreateLink(t *testing.T) {
 				}
 
 				// Проверяем, что запись действительно есть в БД
-				link, err := q.GetLink(ctx, response.ID) // ← теперь ctx есть
+				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
 					t.Errorf("Failed to get link from DB: %v", err)
 				}

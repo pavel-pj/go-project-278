@@ -11,10 +11,17 @@ import (
 
 const getAllLinks = `-- name: GetAllLinks :many
 SELECT id, original_url, short_name, short_url, created_at FROM links
+ORDER BY id
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) GetAllLinks(ctx context.Context) ([]Link, error) {
-	rows, err := q.db.QueryContext(ctx, getAllLinks)
+type GetAllLinksParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) GetAllLinks(ctx context.Context, arg GetAllLinksParams) ([]Link, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLinks, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

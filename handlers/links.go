@@ -221,18 +221,64 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 }
 
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
+	var req dto.AllLinkRequest
 
-	r, err := h.service.GetAllLinks(c.Request.Context())
+	var offset int32
+	var limit int32
+	offset = 0
+	limit = 10
+	//Если есть параметр range
+	req.Range = c.Query("range")
+	if req.Range != "" {
+		// ПАРАМЕТР ЕСТЬ - парсим его
+		trimmed := strings.Trim(req.Range, "[]")
+		parts := strings.Split(trimmed, ",")
+
+		if len(parts) != 2 {
+			// Ошибка: неправильный формат
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"invalid range format": req.Range,
+			})
+		}
+
+		start, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+		end, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+
+		if err1 != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid range values",
+			})
+			return
+		}
+
+		if start < 0 || end < 0 || end <= start {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid range values",
+			})
+			return
+		}
+
+		offset = int32(start - 1)
+		limit = int32(end - start + 1)
+
+	}
+
+	params := linksdb.GetAllLinksParams{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	res, err := h.service.GetAllLinks(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to create link: " + err.Error(),
+			"error": "Failed get link: " + err.Error(),
 		})
 		return
 	}
 
 	// Преобразуем
-	response := make([]dto.LinkResponse, len(r))
-	for i, link := range r {
+	response := make([]dto.LinkResponse, len(res))
+	for i, link := range res {
 		response[i] = dto.LinkResponse{
 			ID:          link.ID,
 			OriginalUrl: link.OriginalUrl,

@@ -45,8 +45,8 @@ func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParam
 
 // GetAllLinks retrieves all links from the database.
 // It returns a slice of links and any error encountered during the operation.
-func (s *LinkService) GetAllLinks(ctx context.Context) ([]linksdb.Link, error) {
-	links, err := s.queries.GetAllLinks(ctx)
+func (s *LinkService) GetAllLinks(ctx context.Context, params linksdb.GetAllLinksParams) ([]linksdb.Link, error) {
+	links, err := s.queries.GetAllLinks(ctx, params)
 	if err != nil {
 		return []linksdb.Link{}, fmt.Errorf("failed to get all links:  %w", err)
 	}
