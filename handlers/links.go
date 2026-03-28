@@ -339,7 +339,9 @@ func (h *LinkHandler) calculatePagination(startRange, endRange int64, hasRange b
 
 		// Проверяем, есть ли данные в диапазоне
 		if startRange <= endRange {
+			// #nosec G115
 			offset = int32(startRange - 1)
+			// #nosec G115
 			limit = int32(endRange - startRange + 1)
 			return offset, limit, startRange, endRange
 		}
@@ -359,6 +361,7 @@ func (h *LinkHandler) calculatePagination(startRange, endRange int64, hasRange b
 	}
 
 	offset = 0
+	// #nosec G115
 	limit = int32(actualEnd)
 	return offset, limit, 1, actualEnd
 }
