@@ -253,7 +253,7 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 
 		if start < 0 || end < 0 || end <= start {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid range values",
+				"error": "invalid range values t",
 			})
 			return
 		}
