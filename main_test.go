@@ -227,7 +227,6 @@ func TestCreateLink(t *testing.T) {
 				}
 			},
 		},
-		// ... остальные тесты
 	}
 
 	for _, tt := range tests {
@@ -705,15 +704,20 @@ func TestDeleteLink(t *testing.T) {
 	}
 }
 
-// TestGetAllLinks - табличный тест для получения всех ссылок
+// TestGetAllLinks - табличный тест для получения всех ссылок с пагинацией
 func TestGetAllLinks(t *testing.T) {
 	tests := []struct {
-		name          string
-		setupData     func(ctx context.Context, q *linksdb.Queries) int // количество созданных ссылок
-		expectedCount int
+		name           string
+		setupData      func(ctx context.Context, q *linksdb.Queries) int // количество созданных ссылок
+		rangeParam     string                                            // параметр range
+		expectedCount  int                                               // ожидаемое количество в ответе
+		expectedStart  int64                                             // ожидаемый start в Content-Range
+		expectedEnd    int64                                             // ожидаемый end в Content-Range
+		expectedTotal  int64                                             // ожидаемый total в Content-Range
+		expectedStatus int                                               // ожидаемый статус
 	}{
 		{
-			name: "Success - Get all links when multiple exist",
+			name: "Success - Get all links without range (default first 10)",
 			setupData: func(ctx context.Context, q *linksdb.Queries) int {
 				links := []linksdb.CreateLinkParams{
 					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
@@ -728,29 +732,128 @@ func TestGetAllLinks(t *testing.T) {
 				}
 				return len(links)
 			},
-			expectedCount: 3,
+			rangeParam:     "",
+			expectedCount:  3,
+			expectedStart:  1,
+			expectedEnd:    3,
+			expectedTotal:  3,
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Success - Get all links when empty",
+			name: "Success - Get links with range [1,2]",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				links := []linksdb.CreateLinkParams{
+					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
+					{OriginalUrl: "https://test2.com", ShortName: "link2", ShortUrl: "https://test.com/link2"},
+					{OriginalUrl: "https://test3.com", ShortName: "link3", ShortUrl: "https://test.com/link3"},
+				}
+				for _, link := range links {
+					_, err := q.CreateLink(ctx, link)
+					if err != nil {
+						t.Fatalf("Failed to create test link: %v", err)
+					}
+				}
+				return len(links)
+			},
+			rangeParam:     "[1,2]",
+			expectedCount:  2,
+			expectedStart:  1,
+			expectedEnd:    2,
+			expectedTotal:  3,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Get links with range [2,3]",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				links := []linksdb.CreateLinkParams{
+					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
+					{OriginalUrl: "https://test2.com", ShortName: "link2", ShortUrl: "https://test.com/link2"},
+					{OriginalUrl: "https://test3.com", ShortName: "link3", ShortUrl: "https://test.com/link3"},
+				}
+				for _, link := range links {
+					_, err := q.CreateLink(ctx, link)
+					if err != nil {
+						t.Fatalf("Failed to create test link: %v", err)
+					}
+				}
+				return len(links)
+			},
+			rangeParam:     "[2,3]",
+			expectedCount:  2,
+			expectedStart:  2,
+			expectedEnd:    3,
+			expectedTotal:  3,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Range exceeds total count",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				links := []linksdb.CreateLinkParams{
+					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
+					{OriginalUrl: "https://test2.com", ShortName: "link2", ShortUrl: "https://test.com/link2"},
+				}
+				for _, link := range links {
+					_, err := q.CreateLink(ctx, link)
+					if err != nil {
+						t.Fatalf("Failed to create test link: %v", err)
+					}
+				}
+				return len(links)
+			},
+			rangeParam:     "[1,10]",
+			expectedCount:  2,
+			expectedStart:  1,
+			expectedEnd:    2, // должно скорректироваться до 2
+			expectedTotal:  2,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Empty database with range",
 			setupData: func(ctx context.Context, q *linksdb.Queries) int {
 				return 0
 			},
-			expectedCount: 0,
+			rangeParam:     "[1,10]",
+			expectedCount:  0,
+			expectedStart:  1,
+			expectedEnd:    0, // end будет скорректирован до totalCount = 0
+			expectedTotal:  0,
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Success - Get all links with one item",
+			name: "Error - Invalid range format",
 			setupData: func(ctx context.Context, q *linksdb.Queries) int {
-				_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
-					OriginalUrl: "https://single.com",
-					ShortName:   "single",
-					ShortUrl:    "https://test.com/single",
-				})
-				if err != nil {
-					t.Fatalf("Failed to create test link: %v", err)
-				}
-				return 1
+				return 0
 			},
-			expectedCount: 1,
+			rangeParam:     "[1,2,3]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Error - Invalid range values (non-numeric)",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "[a,b]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Error - Start < 0",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "[-1,5]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Error - End <= Start",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "[5,5]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
@@ -759,7 +862,10 @@ func TestGetAllLinks(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
 				// Создаем тестовые данные
 				createdCount := tt.setupData(ctx, q)
-
+				// проверка
+				if int64(createdCount) != tt.expectedTotal && tt.expectedTotal > 0 {
+					t.Logf("Warning: created %d links, but expected total %d", createdCount, tt.expectedTotal)
+				}
 				// Создаем временный хендлер с этой транзакцией
 				tempService := services.NewLinkService(q)
 				tempHandler := handlers.NewLinkHandler(tempService)
@@ -768,39 +874,132 @@ func TestGetAllLinks(t *testing.T) {
 				tempRouter := gin.New()
 				tempRouter.GET("/api/links", tempHandler.GetAllLinks)
 
+				// Формируем URL с параметром range если он указан
+				url := "/api/links"
+				if tt.rangeParam != "" {
+					url = url + "?range=" + tt.rangeParam
+				}
+
 				// Выполняем запрос
-				req := httptest.NewRequest(http.MethodGet, "/api/links", nil)
+				req := httptest.NewRequest(http.MethodGet, url, nil)
 				w := httptest.NewRecorder()
 				tempRouter.ServeHTTP(w, req)
 
 				// Проверяем статус
-				if w.Code != http.StatusOK {
-					t.Fatalf("Expected status %d, got %d", http.StatusOK, w.Code)
+				if w.Code != tt.expectedStatus {
+					t.Fatalf("Expected status %d, got %d", tt.expectedStatus, w.Code)
 				}
 
-				// Проверяем количество
+				// Если ожидается ошибка, дальше не проверяем
+				if tt.expectedStatus != http.StatusOK {
+					return
+				}
+
+				// Проверяем заголовок Content-Range
+				contentRange := w.Header().Get("Content-Range")
+				expectedContentRange := fmt.Sprintf("links %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
+				if contentRange != expectedContentRange {
+					t.Errorf("Expected Content-Range: %s, got: %s", expectedContentRange, contentRange)
+				}
+
+				// Проверяем количество в ответе
 				var response []dto.LinkResponse
 				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 					t.Fatalf("Failed to parse response: %v", err)
 				}
 
-				if len(response) != createdCount {
-					t.Errorf("Expected %d links, got %d", createdCount, len(response))
+				if len(response) != tt.expectedCount {
+					t.Errorf("Expected %d links, got %d", tt.expectedCount, len(response))
 				}
 
-				// Проверяем, что все созданные ссылки есть в ответе
-				if createdCount > 0 {
-					// Получаем все ID из БД
-					allLinks, err := q.GetAllLinks(ctx)
+				// Если есть данные, проверяем что ID соответствуют диапазону
+				if tt.expectedCount > 0 && tt.rangeParam != "" {
+					// Получаем все ссылки из БД для проверки порядка
+					allLinks, err := q.GetAllLinks(ctx, linksdb.GetAllLinksParams{
+						Limit:  100, // получаем все
+						Offset: 0,
+					})
 					if err != nil {
 						t.Fatalf("Failed to get links from DB: %v", err)
 					}
 
-					if len(allLinks) != len(response) {
-						t.Errorf("DB and response count mismatch: DB=%d, Response=%d", len(allLinks), len(response))
+					// Проверяем что ID ответа соответствуют ожидаемому диапазону
+					// (с учетом 1-based индексации)
+					for i, link := range response {
+						expectedIndex := int(tt.expectedStart) + i - 1
+						if expectedIndex >= 0 && expectedIndex < len(allLinks) {
+							if link.ID != allLinks[expectedIndex].ID {
+								t.Errorf("At position %d: expected ID %d, got ID %d",
+									i, allLinks[expectedIndex].ID, link.ID)
+							}
+						}
 					}
 				}
 			})
 		})
 	}
+}
+
+// TestGetAllLinksWithLargeDataset - тест с большим количеством данных
+func TestGetAllLinksWithLargeDataset(t *testing.T) {
+	withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
+		// Создаем 25 ссылок
+		for i := 1; i <= 25; i++ {
+			_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+				OriginalUrl: fmt.Sprintf("https://test%d.com", i),
+				ShortName:   fmt.Sprintf("link%d", i),
+				ShortUrl:    fmt.Sprintf("https://test.com/link%d", i),
+			})
+			if err != nil {
+				t.Fatalf("Failed to create test link: %v", err)
+			}
+		}
+
+		tempService := services.NewLinkService(q)
+		tempHandler := handlers.NewLinkHandler(tempService)
+
+		tests := []struct {
+			rangeParam    string
+			expectedCount int
+			expectedStart int64
+			expectedEnd   int64
+			expectedTotal int64
+		}{
+			{"[1,10]", 10, 1, 10, 25},
+			{"[5,14]", 10, 5, 14, 25},
+			{"[20,29]", 6, 20, 25, 25}, // end корректируется до 25
+			{"[1,25]", 25, 1, 25, 25},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.rangeParam, func(t *testing.T) {
+				url := "/api/links?range=" + tt.rangeParam
+				req := httptest.NewRequest(http.MethodGet, url, nil)
+				w := httptest.NewRecorder()
+
+				tempRouter := gin.New()
+				tempRouter.GET("/api/links", tempHandler.GetAllLinks)
+				tempRouter.ServeHTTP(w, req)
+
+				if w.Code != http.StatusOK {
+					t.Fatalf("Expected status OK, got %d", w.Code)
+				}
+
+				// Проверяем Content-Range
+				contentRange := w.Header().Get("Content-Range")
+				expected := fmt.Sprintf("links %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
+				if contentRange != expected {
+					t.Errorf("Expected Content-Range: %s, got: %s", expected, contentRange)
+				}
+
+				// Проверяем количество
+				var response []dto.LinkResponse
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if len(response) != tt.expectedCount {
+					t.Errorf("Expected %d links, got %d", tt.expectedCount, len(response))
+				}
+			})
+		}
+	})
+
 }

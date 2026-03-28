@@ -50,12 +50,10 @@ TEST_DB_USER ?= testuser
 TEST_DB_PASSWORD ?= testpass
 TEST_DB_NAME ?= testdb
 
-# Запуск всех тестов (unit + integration)
-test: test-unit test-integration
-	@echo "✅ All tests completed"
- 
-test-integration:
-	@echo "🐘 Running integration tests inside container..."
+# Запуск всех тестов
+
+test:
+	@echo "Running tests inside container..."
 	docker compose exec -T backend go test -v -tags=integration -timeout 5m .
  
 # Запуск тестов с покрытием
@@ -65,14 +63,10 @@ test-coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "✅ Coverage report: coverage.html"
 
-# Запуск тестов с подробным выводом
-test-verbose:
-	@echo "🔍 Running tests with verbose output..."
-	go test -v -tags=integration -timeout 5m ./...
 
 # Очистка кэша тестов
 test-clean:
-	@echo "🧹 Cleaning test cache..."
+	@echo "Cleaning test cache..."
 	go clean -testcache
 
 # Запуск тестов в CI среде
