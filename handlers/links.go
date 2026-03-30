@@ -220,12 +220,9 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 }
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
+
 	// Парсим параметры
 	startRange, endRange, hasRange := h.parseRangeParam(c)
-	if hasRange && startRange == 0 {
-		// Ошибка уже отправлена в parseRangeParam
-		return
-	}
 
 	// Получаем общее количество
 	totalCount, err := h.service.GetLinksCount(c.Request.Context())
@@ -237,10 +234,12 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 	}
 
 	// Корректируем значения
-	offset, limit, startRange, endRange := h.calculatePagination(startRange, endRange, hasRange, totalCount)
+	offset, limit, newStart, newEnd := h.calculatePagination(startRange, endRange, hasRange, totalCount)
 
 	// Устанавливаем заголовок
-	c.Header("Content-Range", fmt.Sprintf("links %d-%d/%d", startRange, endRange, totalCount))
+	contentRange := fmt.Sprintf("links %d-%d/%d", newStart, newEnd, totalCount)
+
+	c.Writer.Header().Set("Content-Range", contentRange)
 
 	// Если limit == 0, возвращаем пустой массив
 	if limit == 0 {
@@ -280,7 +279,7 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 func (h *LinkHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRange bool) {
 	rangeParam := c.Query("range")
 	if rangeParam == "" {
-		return 1, 10, false
+		return 0, 9, false // default: первые 10 записей (0-9)
 	}
 
 	trimmed := strings.Trim(rangeParam, "[]")
@@ -304,15 +303,13 @@ func (h *LinkHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRang
 		return 0, 0, true
 	}
 
-	// Проверка: start должен быть >= 1
-	if start < 1 {
+	if start < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "start must be >= 1",
+			"error": "start must be >= 0",
 		})
 		return 0, 0, true
 	}
 
-	// Проверка: end должен быть > start (диапазон должен содержать хотя бы один элемент)
 	if end <= start {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "end must be greater than start",
@@ -324,46 +321,53 @@ func (h *LinkHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRang
 }
 
 // calculatePagination вычисляет offset, limit и скорректированные start/end
-// calculatePagination вычисляет offset, limit и скорректированные start/end
 func (h *LinkHandler) calculatePagination(startRange, endRange int64, hasRange bool, totalCount int64) (offset, limit int32, newStart, newEnd int64) {
 	if hasRange {
-		// Если totalCount == 0, возвращаем startRange=1, endRange=0
+		// Если totalCount == 0, возвращаем пустой результат
 		if totalCount == 0 {
-			return 0, 0, 1, 0
+			return 0, 0, 0, 0
 		}
 
-		// Корректируем endRange
-		if endRange > totalCount {
-			endRange = totalCount
+		// Корректируем endRange (не выходим за пределы)
+		if endRange >= totalCount {
+			endRange = totalCount - 1
 		}
 
 		// Проверяем, есть ли данные в диапазоне
 		if startRange <= endRange {
-			// #nosec G115
-			offset = int32(startRange - 1)
-			// #nosec G115
+			//nolint:gosec
+			offset = int32(startRange)
+			//nolint:gosec
 			limit = int32(endRange - startRange + 1)
-			return offset, limit, startRange, endRange
+
+			// Для Content-Range используем единичную индексацию (как требует HTTP)
+			newStart = startRange + 1
+			newEnd = endRange + 1
+
+			return offset, limit, newStart, newEnd
 		}
 
 		// Нет данных в диапазоне
-		return 0, 0, startRange, 0
+		return 0, 0, startRange + 1, 0
 	}
 
 	// Без range - дефолтные значения
 	if totalCount == 0 {
-		return 0, 0, 1, 0
+		return 0, 0, 0, 0
 	}
 
-	actualEnd := endRange
+	// По умолчанию берем первые 10 записей
+	limit = 10
 	if totalCount < 10 {
-		actualEnd = totalCount
+		//nolint:gosec
+		limit = int32(totalCount)
 	}
 
 	offset = 0
-	// #nosec G115
-	limit = int32(actualEnd)
-	return offset, limit, 1, actualEnd
+	newStart = 1
+	newEnd = int64(limit)
+
+	return offset, limit, newStart, newEnd
 }
 
 func (h *LinkHandler) GetLink(c *gin.Context) {
