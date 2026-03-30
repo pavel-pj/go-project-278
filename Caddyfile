@@ -3,15 +3,16 @@
 # Статика из /app/public
 root * /app/public
 
-# Отдаём /assets/* как есть
-handle /assets/* {
-    file_server
+# Маршруты API проксируем на бэкенд
+handle /api/* {
+    reverse_proxy localhost:8080
 }
 
-# Отдаём корень как index.html
-handle / {
-    file_server
+handle /ping {
+    reverse_proxy localhost:8080
 }
 
-# Всё остальное — в приложение на 8080
-reverse_proxy localhost:8080
+# Всё остальное (включая /assets/*) — статика
+handle {
+    file_server
+}
