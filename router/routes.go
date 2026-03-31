@@ -10,6 +10,7 @@ import (
 func registerRoutes(router *gin.Engine, app *app.App) {
 
 	linkHandler := h.NewLinkHandler(app.Services.Links)
+	visitHandler := h.NewVisitHandler(app.Services.Visits)
 
 	router.GET("/ping", h.PingHandler)
 	router.POST("/api/links", linkHandler.Create)
@@ -17,5 +18,7 @@ func registerRoutes(router *gin.Engine, app *app.App) {
 	router.GET("/api/links/:id", linkHandler.GetLink)
 	router.DELETE("/api/links/:id", linkHandler.DeleteLink)
 	router.PUT("/api/links/:id", linkHandler.UpdateLink)
+
+	router.GET("/r/:code", visitHandler.NewRedirectHandler)
 
 }

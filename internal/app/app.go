@@ -22,7 +22,8 @@ type Queries struct {
 }
 
 type Services struct {
-	Links *services.LinkService
+	Links  *services.LinkService
+	Visits *services.VisitService
 }
 
 func NewApp(db *sql.DB) *App {

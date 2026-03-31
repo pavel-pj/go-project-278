@@ -23,7 +23,10 @@ goose-rollback:
 	docker compose exec backend goose -dir $(GOOSE_DIR) postgres postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)?sslmode=disable   down	
 
 main:
-	docker compose exec backend go run main.go		
+	docker compose exec backend go run main.go	
+
+start:
+	npx concurrently "docker compose exec backend go run main.go" "npm run start:backend" "npx start-hexlet-url-shortener-frontend"  
 bash:
 	docker compose exec backend sh
 

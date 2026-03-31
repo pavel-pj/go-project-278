@@ -10,5 +10,12 @@ sql:
         out: "internal/db/links"
         emit_interface: true
         #sql_package: "database/sql"  
-          
-  
+
+  - engine: "postgresql"   
+    schema: "db/schema/visits.sql"   
+    queries: "queries/visits"        
+    gen:
+      go:
+        package: "visits"           
+        out: "internal/db/visits"    
+        emit_interface: true  
