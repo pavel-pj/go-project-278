@@ -1,17 +1,17 @@
-package services
+package repositories
 
 import (
 	visitsdb "db200/internal/db/visits"
 )
 
 // LinkService обрабатывает бизнес-логику для ссылок
-type VisitService struct {
+type VisitRepository struct {
 	queries *visitsdb.Queries
 }
 
 // NewLinkService создает сервис
-func NewLVisitService(queries *visitsdb.Queries) *VisitService {
-	return &VisitService{
+func NewLVisitRepository(queries *visitsdb.Queries) *VisitRepository {
+	return &VisitRepository{
 		queries: queries,
 	}
 }

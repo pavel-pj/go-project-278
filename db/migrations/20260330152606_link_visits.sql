@@ -6,7 +6,8 @@ CREATE TABLE link_visits (
     created_at TIMESTAMP DEFAULT NOW(),
     ip VARCHAR(45),
     user_agent TEXT,
-    status INTEGER
+    status INTEGER,
+    referer TEXT
 );
 -- +goose StatementEnd
 

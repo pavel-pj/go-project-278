@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	linksdb "db200/internal/db/links"
 	"db200/internal/dto"
-	s "db200/services"
+	r "db200/repositories"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,12 +16,12 @@ import (
 )
 
 type LinkHandler struct {
-	service *s.LinkService
+	repository *r.LinkRepository
 }
 
-func NewLinkHandler(service *s.LinkService) *LinkHandler {
+func NewLinkHandler(repository *r.LinkRepository) *LinkHandler {
 	return &LinkHandler{
-		service: service,
+		repository: repository,
 	}
 }
 
@@ -36,7 +36,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.service.GetByOriginalURL(c.Request.Context(), req.OriginalUrl)
+	existing, err := h.repository.GetByOriginalURL(c.Request.Context(), req.OriginalUrl)
 	if err == nil {
 		// No error means URL was found (exists in DB)
 		c.JSON(http.StatusConflict, gin.H{
@@ -53,7 +53,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	}
 
 	if req.ShortName != "" {
-		_, err = h.service.GetLinkByShortName(c.Request.Context(), req.ShortName)
+		_, err = h.repository.GetLinkByShortName(c.Request.Context(), req.ShortName)
 		if err == nil {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":   "20-This ShortName already has used for other URL",
@@ -65,7 +65,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	} else {
 
 		// Generate a random short name
-		req.ShortName, err = h.service.GenerateShortName(c.Request.Context())
+		req.ShortName, err = h.repository.GenerateShortName(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to generate unique short name",
@@ -84,7 +84,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		ShortUrl:    req.ShortUrl,
 	}
 
-	r, err := h.service.Create(c.Request.Context(), params)
+	r, err := h.repository.Create(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create a new link",
@@ -129,7 +129,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 	if req.OriginalUrl != nil {
 		// проверка на уникальность адреса
-		existing, err := h.service.GetLinkByOriginURLExludedID(c.Request.Context(),
+		existing, err := h.repository.GetLinkByOriginURLExludedID(c.Request.Context(),
 			linksdb.GetLinkByOriginURLExludedIDParams{
 				ID:          id,
 				OriginalUrl: *req.OriginalUrl,
@@ -147,7 +147,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 	}
 	if req.ShortName != nil {
 		// проверка на уникальность shortName
-		existing, err := h.service.GetLinkByShortNameExludedID(
+		existing, err := h.repository.GetLinkByShortNameExludedID(
 			c.Request.Context(),
 			linksdb.GetLinkByShortNameExcluedeIDParams{
 				ID:        id,
@@ -197,7 +197,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		}
 	}
 
-	updateLink, err := h.service.UpdateLink(c.Request.Context(), updateParams)
+	updateLink, err := h.repository.UpdateLink(c.Request.Context(), updateParams)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -225,7 +225,7 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 	startRange, endRange, hasRange := h.parseRangeParam(c)
 
 	// Получаем общее количество
-	totalCount, err := h.service.GetLinksCount(c.Request.Context())
+	totalCount, err := h.repository.GetLinksCount(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to get total count: " + err.Error(),
@@ -253,7 +253,7 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 		Offset: offset,
 	}
 
-	res, err := h.service.GetAllLinks(c.Request.Context(), params)
+	res, err := h.repository.GetAllLinks(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed get links: " + err.Error(),
@@ -384,7 +384,7 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 
 	id := int32(id64)
 
-	r, err := h.service.GetLink(c.Request.Context(), id)
+	r, err := h.repository.GetLink(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -419,7 +419,7 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 
 	id := int32(id64)
 
-	_, err = h.service.GetLink(c.Request.Context(), id)
+	_, err = h.repository.GetLink(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -435,7 +435,7 @@ func (h *LinkHandler) DeleteLink(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteLink(c.Request.Context(), id)
+	err = h.repository.DeleteLink(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

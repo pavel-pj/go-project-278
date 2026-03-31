@@ -1,7 +1,7 @@
 // Package services provides business logic layer for handling link operations.
 // It encapsulates the database queries and implements validation, generation,
 // and other business rules for managing shortened links.
-package services
+package repositories
 
 import (
 	"context"
@@ -20,20 +20,20 @@ var (
 )
 
 // LinkService обрабатывает бизнес-логику для ссылок
-type LinkService struct {
+type LinkRepository struct {
 	queries *linksdb.Queries
 }
 
 // NewLinkService создает сервис
-func NewLinkService(queries *linksdb.Queries) *LinkService {
-	return &LinkService{
+func NewLinkRepository(queries *linksdb.Queries) *LinkRepository {
+	return &LinkRepository{
 		queries: queries,
 	}
 }
 
 // Create creates a new link in the database with the provided parameters.
 // It returns the created link and any error encountered during the operation.
-func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParams) (linksdb.Link, error) {
+func (s *LinkRepository) Create(ctx context.Context, params linksdb.CreateLinkParams) (linksdb.Link, error) {
 
 	link, err := s.queries.CreateLink(ctx, params)
 	if err != nil {
@@ -45,7 +45,7 @@ func (s *LinkService) Create(ctx context.Context, params linksdb.CreateLinkParam
 
 // GetAllLinks retrieves all links from the database.
 // It returns a slice of links and any error encountered during the operation.
-func (s *LinkService) GetAllLinks(ctx context.Context, params linksdb.GetAllLinksParams) ([]linksdb.Link, error) {
+func (s *LinkRepository) GetAllLinks(ctx context.Context, params linksdb.GetAllLinksParams) ([]linksdb.Link, error) {
 	links, err := s.queries.GetAllLinks(ctx, params)
 	if err != nil {
 		return []linksdb.Link{}, fmt.Errorf("failed to get all links:  %w", err)
@@ -54,7 +54,7 @@ func (s *LinkService) GetAllLinks(ctx context.Context, params linksdb.GetAllLink
 }
 
 // GetLinksCount retrieves count of links from the database.
-func (s *LinkService) GetLinksCount(ctx context.Context) (int64, error) {
+func (s *LinkRepository) GetLinksCount(ctx context.Context) (int64, error) {
 	count, err := s.queries.GetLinksCount(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get all links:  %w", err)
@@ -64,7 +64,7 @@ func (s *LinkService) GetLinksCount(ctx context.Context) (int64, error) {
 
 // GetLink retrieves a link from the database by its unique ID.
 // It returns the link and any error encountered during the operation.
-func (s *LinkService) GetLink(ctx context.Context, id int32) (linksdb.Link, error) {
+func (s *LinkRepository) GetLink(ctx context.Context, id int32) (linksdb.Link, error) {
 
 	link, err := s.queries.GetLink(ctx, id)
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *LinkService) GetLink(ctx context.Context, id int32) (linksdb.Link, erro
 
 // DeleteLink removes a link from the database by its ID.
 // It returns an error if the deletion operation fails.
-func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
+func (s *LinkRepository) DeleteLink(ctx context.Context, id int32) error {
 	err := s.queries.DeleteLink(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete link by id: %d: %w", id, err)
@@ -84,7 +84,7 @@ func (s *LinkService) DeleteLink(ctx context.Context, id int32) error {
 }
 
 // GetByOriginalURL retrieves a link by its original URL.
-func (s *LinkService) GetByOriginalURL(ctx context.Context, originalURL string) (linksdb.Link, error) {
+func (s *LinkRepository) GetByOriginalURL(ctx context.Context, originalURL string) (linksdb.Link, error) {
 	link, err := s.queries.GetLinkByOriginURL(ctx, originalURL)
 	if err != nil {
 		return linksdb.Link{}, fmt.Errorf("failed to get link by orinal url: %s: %w", originalURL, err)
@@ -96,7 +96,7 @@ func (s *LinkService) GetByOriginalURL(ctx context.Context, originalURL string) 
 // GetLinkByOriginURLExludedID retrieves a link by its original URL while excluding
 // a specific link ID from the search results. This is useful for checking if a URL
 // already exists when updating a link, excluding the current link being edited.
-func (s *LinkService) GetLinkByOriginURLExludedID(
+func (s *LinkRepository) GetLinkByOriginURLExludedID(
 	ctx context.Context,
 	params linksdb.GetLinkByOriginURLExludedIDParams) (linksdb.Link, error) {
 
@@ -110,7 +110,7 @@ func (s *LinkService) GetLinkByOriginURLExludedID(
 
 // GetLinkByShortName retrieves a link by its short name from the database.
 // It returns the link and any error encountered during the operation.
-func (s *LinkService) GetLinkByShortName(ctx context.Context, shortName string) (linksdb.Link, error) {
+func (s *LinkRepository) GetLinkByShortName(ctx context.Context, shortName string) (linksdb.Link, error) {
 	link, err := s.queries.GetLinkByShortName(ctx, shortName)
 	if err != nil {
 		return linksdb.Link{}, fmt.Errorf("failed get link by short name %s: %w", shortName, err)
@@ -121,7 +121,7 @@ func (s *LinkService) GetLinkByShortName(ctx context.Context, shortName string) 
 
 // GetLinkByShortNameExludedID retrieves a link by short name excluding a specific ID.
 // Used for checking duplicate short names during updates.
-func (s *LinkService) GetLinkByShortNameExludedID(
+func (s *LinkRepository) GetLinkByShortNameExludedID(
 	ctx context.Context,
 	params linksdb.GetLinkByShortNameExcluedeIDParams) (linksdb.Link, error) {
 	link, err := s.queries.GetLinkByShortNameExcluedeID(ctx, params)
@@ -133,7 +133,7 @@ func (s *LinkService) GetLinkByShortNameExludedID(
 }
 
 // GenerateShortName create a unique URL for the link if a user doesnt provide a short_name param
-func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
+func (s *LinkRepository) GenerateShortName(ctx context.Context) (string, error) {
 	length := 10
 	base62Chars := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
@@ -160,7 +160,7 @@ func (s *LinkService) GenerateShortName(ctx context.Context) (string, error) {
 // UpdateLink updates an existing link in the database.
 // It takes a context and update parameters, and returns the updated link.
 // If the link doesn't exist or there's a database error, an error is returned.
-func (s *LinkService) UpdateLink(
+func (s *LinkRepository) UpdateLink(
 	ctx context.Context,
 	params linksdb.UpdateLinkParams) (linksdb.Link, error) {
 	link, err := s.queries.UpdateLink(ctx, params)

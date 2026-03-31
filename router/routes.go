@@ -9,8 +9,8 @@ import (
 
 func registerRoutes(router *gin.Engine, app *app.App) {
 
-	linkHandler := h.NewLinkHandler(app.Services.Links)
-	visitHandler := h.NewVisitHandler(app.Services.Visits)
+	linkHandler := h.NewLinkHandler(app.Repositories.Links)
+	// visitHandler := h.NewVisitHandler(app.Repositories.Visits, app.Repositories.Links)
 
 	router.GET("/ping", h.PingHandler)
 	router.POST("/api/links", linkHandler.Create)
@@ -19,6 +19,6 @@ func registerRoutes(router *gin.Engine, app *app.App) {
 	router.DELETE("/api/links/:id", linkHandler.DeleteLink)
 	router.PUT("/api/links/:id", linkHandler.UpdateLink)
 
-	router.GET("/r/:code", visitHandler.NewRedirectHandler)
+	// router.GET("/r/:code", visitHandler.NewVisitHandler)
 
 }
