@@ -10,6 +10,8 @@ import (
 
 type Querier interface {
 	CreateVisit(ctx context.Context, arg CreateVisitParams) (LinkVisit, error)
+	GetVisits(ctx context.Context, arg GetVisitsParams) ([]LinkVisit, error)
+	GetVisitsCount(ctx context.Context) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -13,15 +13,19 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/lib/pq"
 )
 
 type LinkHandler struct {
 	repository *r.LinkRepository
+	validator  *validator.Validate
 }
 
 func NewLinkHandler(repository *r.LinkRepository) *LinkHandler {
 	return &LinkHandler{
 		repository: repository,
+		validator:  validator.New(),
 	}
 }
 
@@ -30,19 +34,38 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	// Валидируем JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Проверяем, это ошибка валидации или ошибка парсинга JSON
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request: " + err.Error(),
+			"error": "invalid request",
 		})
 		return
 	}
 
-	existing, err := h.repository.GetByOriginalURL(c.Request.Context(), req.OriginalUrl)
+	// Дополнительная валидация через validator
+	if err := h.validator.Struct(req); err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "validation failed",
+		})
+		return
+	}
+
+	// Проверяем уникальность original_url
+	_, err := h.repository.GetByOriginalURL(c.Request.Context(), req.OriginalUrl)
 	if err == nil {
-		// No error means URL was found (exists in DB)
 		c.JSON(http.StatusConflict, gin.H{
-			"error":   "This URL already has a shortened version",
-			"code":    "DUPLICATE_ORIGINAL_URL",
-			"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+			"errors": map[string]string{
+				"original_url": "this URL already has a shortened version",
+			},
 		})
 		return
 	}
@@ -53,17 +76,17 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	}
 
 	if req.ShortName != "" {
+		// Проверяем уникальность short_name
 		_, err = h.repository.GetLinkByShortName(c.Request.Context(), req.ShortName)
 		if err == nil {
 			c.JSON(http.StatusConflict, gin.H{
-				"error":   "20-This ShortName already has used for other URL",
-				"code":    "DUPLICATE_SHORT_NAME_URL",
-				"details": fmt.Sprintf("Short name: %s", req.ShortName),
+				"errors": map[string]string{
+					"short_name": "short name already in use",
+				},
 			})
 			return
 		}
 	} else {
-
 		// Generate a random short name
 		req.ShortName, err = h.repository.GenerateShortName(c.Request.Context())
 		if err != nil {
@@ -86,6 +109,24 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	r, err := h.repository.Create(c.Request.Context(), params)
 	if err != nil {
+		// Обработка ошибки уникальности PostgreSQL (23505)
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			if strings.Contains(pqErr.Message, "original_url") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"original_url": "this URL already has a shortened version",
+					},
+				})
+			} else if strings.Contains(pqErr.Message, "short_name") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"short_name": "short name already in use",
+					},
+				})
+			}
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create a new link",
 		})
@@ -100,11 +141,9 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, response)
-
 }
 
 func (h *LinkHandler) UpdateLink(c *gin.Context) {
-
 	idParam := c.Param("id")
 	id64, err := strconv.ParseInt(idParam, 10, 32)
 	if err != nil {
@@ -121,33 +160,51 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 	// Валидируем JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request: " + err.Error(),
+			"error": "invalid request",
+		})
+		return
+	}
+
+	// Дополнительная валидация
+	if err := h.validator.Struct(req); err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "validation failed",
 		})
 		return
 	}
 
 	if req.OriginalUrl != nil {
 		// проверка на уникальность адреса
-		existing, err := h.repository.GetLinkByOriginURLExludedID(c.Request.Context(),
+		_, err := h.repository.GetLinkByOriginURLExludedID(c.Request.Context(),
 			linksdb.GetLinkByOriginURLExludedIDParams{
 				ID:          id,
 				OriginalUrl: *req.OriginalUrl,
 			})
 
 		if err == nil {
-			// No error means URL was found (exists in DB)
 			c.JSON(http.StatusConflict, gin.H{
-				"error":   "This URL already has a shortened version",
-				"code":    "DUPLICATE_ORIGINAL_URL",
-				"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+				"errors": map[string]string{
+					"original_url": "this URL already has a shortened version",
+				},
 			})
 			return
 		}
 	}
+
 	if req.ShortName != nil {
 		// проверка на уникальность shortName
-		existing, err := h.repository.GetLinkByShortNameExludedID(
+		_, err := h.repository.GetLinkByShortNameExludedID(
 			c.Request.Context(),
 			linksdb.GetLinkByShortNameExcluedeIDParams{
 				ID:        id,
@@ -155,11 +212,10 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 			})
 
 		if err == nil {
-			// No error means URL was found (exists in DB)
 			c.JSON(http.StatusConflict, gin.H{
-				"error":   "This SHORT NAME already has a shortened version",
-				"code":    "DUPLICATE_SHORT_NAME",
-				"details": fmt.Sprintf("Short URL: %s", existing.ShortUrl),
+				"errors": map[string]string{
+					"short_name": "short name already in use",
+				},
 			})
 			return
 		}
@@ -200,11 +256,28 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 	updateLink, err := h.repository.UpdateLink(c.Request.Context(), updateParams)
 
 	if err != nil {
+		// Обработка ошибки уникальности
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			if strings.Contains(pqErr.Message, "original_url") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"original_url": "this URL already has a shortened version",
+					},
+				})
+			} else if strings.Contains(pqErr.Message, "short_name") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"short_name": "short name already in use",
+					},
+				})
+			}
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"details": fmt.Sprintf("%s", err),
 		})
 		return
-
 	}
 
 	response := dto.LinkResponse{
@@ -214,11 +287,9 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		ShortUrl:    updateLink.ShortUrl,
 	}
 
-	c.JSON(http.StatusOK,
-		response,
-	)
-
+	c.JSON(http.StatusOK, response)
 }
+
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 
 	// Парсим параметры

@@ -5,14 +5,15 @@
 package visits
 
 import (
-	"database/sql"
+	"time"
 )
 
 type LinkVisit struct {
 	ID        int32
-	LinkID    sql.NullInt32
-	CreatedAt sql.NullTime
-	Ip        sql.NullString
-	UserAgent sql.NullString
-	Status    sql.NullInt32
+	LinkID    int32
+	CreatedAt time.Time
+	Ip        string
+	UserAgent string
+	Status    int32
+	Referer   string
 }

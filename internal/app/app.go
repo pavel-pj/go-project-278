@@ -14,7 +14,7 @@ import (
 type App struct {
 	DB           *sql.DB
 	Queries      *Queries
-	Repositories *Reposytory
+	Repositories *Repository
 }
 
 // Queries содержит ВСЕ SQLC queries
@@ -23,7 +23,7 @@ type Queries struct {
 	Visits *visitsdb.Queries
 }
 
-type Reposytory struct {
+type Repository struct {
 	Links  *repositories.LinkRepository
 	Visits *repositories.VisitRepository
 }
@@ -34,9 +34,9 @@ func NewApp(db *sql.DB) *App {
 		Visits: visitsdb.New(db),
 	}
 	// Создаем репозитории (передаем queries!)
-	repositories := &Reposytory{
+	repositories := &Repository{
 		Links:  repositories.NewLinkRepository(queries.Links),
-		Visits: repositories.NewLVisitRepository(queries.Visits),
+		Visits: repositories.NewVisitRepository(queries.Visits),
 	}
 
 	return &App{

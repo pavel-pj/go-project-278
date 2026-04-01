@@ -1,3 +1,6 @@
+-- +goose Up
+-- +goose StatementBegin
+DROP TABLE IF EXISTS link_visits;
 CREATE TABLE link_visits (
     id SERIAL PRIMARY KEY,
     link_id INTEGER REFERENCES links(id) ON DELETE CASCADE NOT NULL,
@@ -7,3 +10,10 @@ CREATE TABLE link_visits (
     status INTEGER NOT NULL,
     referer TEXT NOT NULL
 );
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS link_visits;
+-- +goose StatementEnd
+

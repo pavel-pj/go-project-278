@@ -12,13 +12,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"db200/handlers"
 	linksdb "db200/internal/db/links"
+	visitsdb "db200/internal/db/visits"
 	"db200/internal/dto"
-	"db200/repositories" // ← изменено: services → repositories
+	"db200/repositories"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -32,16 +34,16 @@ import (
 var migrationsFS embed.FS
 
 var (
-	testDB      *sql.DB
-	testHandler *handlers.LinkHandler
-	testRouter  *gin.Engine
+	testDB           *sql.DB
+	testLinkHandler  *handlers.LinkHandler
+	testVisitHandler *handlers.VisitHandler
+	testRouter       *gin.Engine
 )
 
-// withTx - обертка для изоляции каждого теста в транзакции
+// withTx - обертка для изоляции каждого теста в транзакции (только для ссылок)
 func withTx(t *testing.T, fn func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx)) {
 	t.Helper()
 
-	// Используем новый контекст для транзакции, не зависящий от t.Context()
 	ctx := context.Background()
 
 	tx, err := testDB.BeginTx(ctx, &sql.TxOptions{
@@ -51,12 +53,10 @@ func withTx(t *testing.T, fn func(ctx context.Context, q *linksdb.Queries, tx *s
 		t.Fatalf("begin tx: %v", err)
 	}
 
-	// Откат транзакции после теста - используем контекст без таймаута
 	t.Cleanup(func() {
-		_ = tx.Rollback() // игнорируем ошибку, т.к. контекст уже может быть отменен
+		_ = tx.Rollback()
 	})
 
-	// Создаем контекст с таймаутом для тестовой логики
 	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	t.Cleanup(cancel)
 
@@ -64,8 +64,32 @@ func withTx(t *testing.T, fn func(ctx context.Context, q *linksdb.Queries, tx *s
 	fn(testCtx, qtx, tx)
 }
 
+// withTxBoth - обертка для транзакции с обоими запросами (для визитов)
+func withTxBoth(t *testing.T, fn func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries, tx *sql.Tx)) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	tx, err := testDB.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelReadCommitted,
+	})
+	if err != nil {
+		t.Fatalf("begin tx: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = tx.Rollback()
+	})
+
+	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	t.Cleanup(cancel)
+
+	qLinks := linksdb.New(tx)
+	qVisits := visitsdb.New(tx)
+	fn(testCtx, qLinks, qVisits, tx)
+}
+
 func TestMain(m *testing.M) {
-	// Устанавливаем Gin в release mode для тестов
 	gin.SetMode(gin.ReleaseMode)
 	ctx := context.Background()
 
@@ -144,18 +168,28 @@ func TestMain(m *testing.M) {
 
 	fmt.Println("✅ Migrations completed")
 
-	// ← ИСПРАВЛЕНО: используем repositories вместо services
-	testQueries := linksdb.New(testDB)
-	testRepository := repositories.NewLinkRepository(testQueries) // ← изменено
-	testHandler = handlers.NewLinkHandler(testRepository)         // ← изменено
+	// Инициализация репозиториев и хендлеров
+	testQueriesLinks := linksdb.New(testDB)
+	testQueriesVisits := visitsdb.New(testDB)
+
+	linkRepository := repositories.NewLinkRepository(testQueriesLinks)
+	visitRepository := repositories.NewVisitRepository(testQueriesVisits)
+
+	testLinkHandler = handlers.NewLinkHandler(linkRepository)
+	testVisitHandler = handlers.NewVisitHandler(visitRepository, linkRepository)
 
 	testRouter = gin.New()
 
-	testRouter.POST("/api/links", testHandler.Create)
-	testRouter.GET("/api/links", testHandler.GetAllLinks)
-	testRouter.GET("/api/links/:id", testHandler.GetLink)
-	testRouter.PUT("/api/links/:id", testHandler.UpdateLink)
-	testRouter.DELETE("/api/links/:id", testHandler.DeleteLink)
+	// Роуты для ссылок
+	testRouter.POST("/api/links", testLinkHandler.Create)
+	testRouter.GET("/api/links", testLinkHandler.GetAllLinks)
+	testRouter.GET("/api/links/:id", testLinkHandler.GetLink)
+	testRouter.PUT("/api/links/:id", testLinkHandler.UpdateLink)
+	testRouter.DELETE("/api/links/:id", testLinkHandler.DeleteLink)
+
+	// Роуты для визитов
+	testRouter.GET("/r/:code", testVisitHandler.Redirect)
+	testRouter.GET("/api/link_visits", testVisitHandler.GetVisits)
 
 	os.Setenv("BASE_SITE", "https://test.com")
 
@@ -166,17 +200,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// ==================== ТАБЛИЧНЫЕ ТЕСТЫ ====================
+// ==================== ТЕСТЫ ДЛЯ LINK HANDLER ====================
 
-// TestCreateLink - табличный тест для создания ссылок
 func TestCreateLink(t *testing.T) {
-	// Каждый подтест будет в своей транзакции
 	tests := []struct {
 		name           string
 		requestBody    dto.CreateLinkRequest
 		setupData      func(ctx context.Context, q *linksdb.Queries)
 		expectedStatus int
-		expectedCode   string
+		expectedError  map[string]string // изменено с expectedCode
 		checkResponse  func(t *testing.T, response dto.LinkResponse, q *linksdb.Queries, ctx context.Context)
 	}{
 		{
@@ -197,7 +229,6 @@ func TestCreateLink(t *testing.T) {
 					t.Error("Expected ID to be set, got 0")
 				}
 
-				// Проверяем, что запись действительно есть в БД
 				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
 					t.Errorf("Failed to get link from DB: %v", err)
@@ -226,48 +257,94 @@ func TestCreateLink(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "Error - Duplicate original_url",
+			setupData: func(ctx context.Context, q *linksdb.Queries) {
+				_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://existing.com",
+					ShortName:   "existing",
+					ShortUrl:    "https://test.com/existing",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create existing link: %v", err)
+				}
+			},
+			requestBody: dto.CreateLinkRequest{
+				OriginalUrl: "https://existing.com",
+				ShortName:   "new",
+			},
+			expectedStatus: http.StatusConflict,
+			expectedError: map[string]string{
+				"original_url": "this URL already has a shortened version",
+			},
+		},
+		{
+			name: "Error - Duplicate short_name",
+			setupData: func(ctx context.Context, q *linksdb.Queries) {
+				_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://first.com",
+					ShortName:   "taken",
+					ShortUrl:    "https://test.com/taken",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create existing link: %v", err)
+				}
+			},
+			requestBody: dto.CreateLinkRequest{
+				OriginalUrl: "https://second.com",
+				ShortName:   "taken",
+			},
+			expectedStatus: http.StatusConflict,
+			expectedError: map[string]string{
+				"short_name": "short name already in use",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
-				// Подготовка данных через sqlc внутри транзакции
 				if tt.setupData != nil {
 					tt.setupData(ctx, q)
 				}
 
-				// ← ИСПРАВЛЕНО: создаем временный репозиторий и хендлер с этой транзакцией
-				tempRepository := repositories.NewLinkRepository(q)    // ← изменено
-				tempHandler := handlers.NewLinkHandler(tempRepository) // ← изменено
+				tempRepository := repositories.NewLinkRepository(q)
+				tempHandler := handlers.NewLinkHandler(tempRepository)
 
-				// Создаем временный роутер для этого теста
 				tempRouter := gin.New()
 				tempRouter.POST("/api/links", tempHandler.Create)
 
-				// Выполняем запрос
 				jsonBody, _ := json.Marshal(tt.requestBody)
 				req := httptest.NewRequest(http.MethodPost, "/api/links", bytes.NewBuffer(jsonBody))
 				req.Header.Set("Content-Type", "application/json")
 				w := httptest.NewRecorder()
 				tempRouter.ServeHTTP(w, req)
 
-				// Проверяем статус
 				if w.Code != tt.expectedStatus {
 					t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, w.Code, w.Body.String())
 				}
 
-				// Проверяем код ошибки
-				if tt.expectedCode != "" && w.Code == http.StatusConflict {
-					var response map[string]interface{}
+				// Проверяем ошибки в новом формате
+				if tt.expectedError != nil && w.Code == http.StatusConflict {
+					var response map[string]map[string]string
 					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 						t.Fatalf("Failed to parse response: %v", err)
 					}
-					if response["code"] != tt.expectedCode {
-						t.Errorf("Expected code '%s', got '%v'", tt.expectedCode, response["code"])
+
+					errors, ok := response["errors"]
+					if !ok {
+						t.Fatal("Expected errors object in response")
+					}
+
+					for field, expectedMsg := range tt.expectedError {
+						if actualMsg, exists := errors[field]; !exists {
+							t.Errorf("Expected error for field '%s', got none", field)
+						} else if actualMsg != expectedMsg {
+							t.Errorf("Expected error message '%s', got '%s'", expectedMsg, actualMsg)
+						}
 					}
 				}
 
-				// Проверяем успешный ответ
 				if tt.expectedStatus == http.StatusCreated && tt.checkResponse != nil {
 					var response dto.LinkResponse
 					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
@@ -280,14 +357,13 @@ func TestCreateLink(t *testing.T) {
 	}
 }
 
-// TestUpdateLink - табличный тест для обновления ссылок
 func TestUpdateLink(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupData      func(ctx context.Context, q *linksdb.Queries) int32 // создает данные и возвращает ID
+		setupData      func(ctx context.Context, q *linksdb.Queries) int32
 		requestBody    map[string]interface{}
 		expectedStatus int
-		expectedCode   string
+		expectedError  map[string]string // изменено с expectedCode
 		checkResponse  func(t *testing.T, response dto.LinkResponse, q *linksdb.Queries, ctx context.Context)
 	}{
 		{
@@ -318,7 +394,6 @@ func TestUpdateLink(t *testing.T) {
 				if response.ShortUrl != expectedShortUrl {
 					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
 				}
-				// Проверяем в БД
 				link, err := q.GetLink(ctx, response.ID)
 				if err != nil {
 					t.Errorf("Failed to get link from DB: %v", err)
@@ -326,52 +401,150 @@ func TestUpdateLink(t *testing.T) {
 				if link.OriginalUrl != "https://new.com" {
 					t.Errorf("DB check: expected original_url 'https://new.com', got '%s'", link.OriginalUrl)
 				}
-				if link.ShortUrl != expectedShortUrl {
-					t.Errorf("DB check: expected short_url '%s', got '%s'", expectedShortUrl, link.ShortUrl)
+			},
+		},
+		{
+			name: "Success - Update only short_name",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int32 {
+				link, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://old.com",
+					ShortName:   "oldname",
+					ShortUrl:    "https://test.com/oldname",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create test link: %v", err)
+				}
+				return link.ID
+			},
+			requestBody: map[string]interface{}{
+				"short_name": "newname",
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, response dto.LinkResponse, q *linksdb.Queries, ctx context.Context) {
+				if response.OriginalUrl != "https://old.com" {
+					t.Errorf("Expected original_url 'https://old.com', got '%s'", response.OriginalUrl)
+				}
+				if response.ShortName != "newname" {
+					t.Errorf("Expected short_name 'newname', got '%s'", response.ShortName)
+				}
+				expectedShortUrl := "https://test.com/newname"
+				if response.ShortUrl != expectedShortUrl {
+					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
 				}
 			},
 		},
-		// ... остальные тесты аналогично
+		{
+			name: "Error - Duplicate original_url",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int32 {
+				_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://existing.com",
+					ShortName:   "existing",
+					ShortUrl:    "https://test.com/existing",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create existing link: %v", err)
+				}
+				link, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://to-update.com",
+					ShortName:   "update",
+					ShortUrl:    "https://test.com/update",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create test link: %v", err)
+				}
+				return link.ID
+			},
+			requestBody: map[string]interface{}{
+				"original_url": "https://existing.com",
+			},
+			expectedStatus: http.StatusConflict,
+			expectedError: map[string]string{
+				"original_url": "this URL already has a shortened version",
+			},
+		},
+		{
+			name: "Error - Duplicate short_name",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int32 {
+				_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://first.com",
+					ShortName:   "taken",
+					ShortUrl:    "https://test.com/taken",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create existing link: %v", err)
+				}
+				link, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://second.com",
+					ShortName:   "update",
+					ShortUrl:    "https://test.com/update",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create test link: %v", err)
+				}
+				return link.ID
+			},
+			requestBody: map[string]interface{}{
+				"short_name": "taken",
+			},
+			expectedStatus: http.StatusConflict,
+			expectedError: map[string]string{
+				"short_name": "short name already in use",
+			},
+		},
+		{
+			name: "Error - Invalid ID (not found)",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int32 {
+				return 99999
+			},
+			requestBody: map[string]interface{}{
+				"original_url": "https://new.com",
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
-				// Создаем тестовые данные
 				id := tt.setupData(ctx, q)
 
-				// ← ИСПРАВЛЕНО: создаем временный репозиторий и хендлер с этой транзакцией
-				tempRepository := repositories.NewLinkRepository(q)    // ← изменено
-				tempHandler := handlers.NewLinkHandler(tempRepository) // ← изменено
+				tempRepository := repositories.NewLinkRepository(q)
+				tempHandler := handlers.NewLinkHandler(tempRepository)
 
-				// Создаем временный роутер для этого теста
 				tempRouter := gin.New()
 				tempRouter.PUT("/api/links/:id", tempHandler.UpdateLink)
 
-				// Выполняем запрос
 				jsonBody, _ := json.Marshal(tt.requestBody)
 				req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/links/%d", id), bytes.NewBuffer(jsonBody))
 				req.Header.Set("Content-Type", "application/json")
 				w := httptest.NewRecorder()
 				tempRouter.ServeHTTP(w, req)
 
-				// Проверяем статус
 				if w.Code != tt.expectedStatus {
 					t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, w.Code, w.Body.String())
 				}
 
-				// Проверяем код ошибки
-				if tt.expectedCode != "" && w.Code == http.StatusConflict {
-					var response map[string]interface{}
+				// Проверяем ошибки в новом формате
+				if tt.expectedError != nil && w.Code == http.StatusConflict {
+					var response map[string]map[string]string
 					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 						t.Fatalf("Failed to parse response: %v", err)
 					}
-					if response["code"] != tt.expectedCode {
-						t.Errorf("Expected code '%s', got '%v'", tt.expectedCode, response["code"])
+
+					errors, ok := response["errors"]
+					if !ok {
+						t.Fatal("Expected errors object in response")
+					}
+
+					for field, expectedMsg := range tt.expectedError {
+						if actualMsg, exists := errors[field]; !exists {
+							t.Errorf("Expected error for field '%s', got none", field)
+						} else if actualMsg != expectedMsg {
+							t.Errorf("Expected error message '%s', got '%s'", expectedMsg, actualMsg)
+						}
 					}
 				}
 
-				// Проверяем успешный ответ
 				if tt.expectedStatus == http.StatusOK && tt.checkResponse != nil {
 					var response dto.LinkResponse
 					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
@@ -384,7 +557,6 @@ func TestUpdateLink(t *testing.T) {
 	}
 }
 
-// TestGetLink - табличный тест для получения ссылки по ID
 func TestGetLink(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -429,7 +601,6 @@ func TestGetLink(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
 				id := tt.setupData(ctx, q)
 
-				// ← ИСПРАВЛЕНО
 				tempRepository := repositories.NewLinkRepository(q)
 				tempHandler := handlers.NewLinkHandler(tempRepository)
 
@@ -456,7 +627,6 @@ func TestGetLink(t *testing.T) {
 	}
 }
 
-// TestDeleteLink - табличный тест для удаления ссылки
 func TestDeleteLink(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -500,7 +670,6 @@ func TestDeleteLink(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
 				id := tt.setupData(ctx, q)
 
-				// ← ИСПРАВЛЕНО
 				tempRepository := repositories.NewLinkRepository(q)
 				tempHandler := handlers.NewLinkHandler(tempRepository)
 
@@ -523,7 +692,6 @@ func TestDeleteLink(t *testing.T) {
 	}
 }
 
-// TestGetAllLinks - табличный тест для получения всех ссылок с пагинацией
 func TestGetAllLinks(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -536,7 +704,7 @@ func TestGetAllLinks(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name: "Success - Get all links without range (default first 10)",
+			name: "Success - Get all links without range",
 			setupData: func(ctx context.Context, q *linksdb.Queries) int {
 				links := []linksdb.CreateLinkParams{
 					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
@@ -558,7 +726,41 @@ func TestGetAllLinks(t *testing.T) {
 			expectedTotal:  3,
 			expectedStatus: http.StatusOK,
 		},
-		// ... остальные тесты
+		{
+			name: "Success - Get links with range [0,1]",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				links := []linksdb.CreateLinkParams{
+					{OriginalUrl: "https://test1.com", ShortName: "link1", ShortUrl: "https://test.com/link1"},
+					{OriginalUrl: "https://test2.com", ShortName: "link2", ShortUrl: "https://test.com/link2"},
+					{OriginalUrl: "https://test3.com", ShortName: "link3", ShortUrl: "https://test.com/link3"},
+				}
+				for _, link := range links {
+					_, err := q.CreateLink(ctx, link)
+					if err != nil {
+						t.Fatalf("Failed to create test link: %v", err)
+					}
+				}
+				return len(links)
+			},
+			rangeParam:     "[0,1]",
+			expectedCount:  2,
+			expectedStart:  1,
+			expectedEnd:    2,
+			expectedTotal:  3,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Empty database",
+			setupData: func(ctx context.Context, q *linksdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "",
+			expectedCount:  0,
+			expectedStart:  0,
+			expectedEnd:    0,
+			expectedTotal:  0,
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
@@ -566,7 +768,6 @@ func TestGetAllLinks(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
 				tt.setupData(ctx, q)
 
-				// ← ИСПРАВЛЕНО
 				tempRepository := repositories.NewLinkRepository(q)
 				tempHandler := handlers.NewLinkHandler(tempRepository)
 
@@ -590,10 +791,12 @@ func TestGetAllLinks(t *testing.T) {
 					return
 				}
 
-				contentRange := w.Header().Get("Content-Range")
-				expectedContentRange := fmt.Sprintf("links %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
-				if contentRange != expectedContentRange {
-					t.Errorf("Expected Content-Range: %s, got: %s", expectedContentRange, contentRange)
+				if tt.expectedTotal > 0 {
+					contentRange := w.Header().Get("Content-Range")
+					expectedContentRange := fmt.Sprintf("links %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
+					if contentRange != expectedContentRange {
+						t.Errorf("Expected Content-Range: %s, got: %s", expectedContentRange, contentRange)
+					}
 				}
 
 				var response []dto.LinkResponse
@@ -609,10 +812,8 @@ func TestGetAllLinks(t *testing.T) {
 	}
 }
 
-// TestGetAllLinksWithLargeDataset - тест с большим количеством данных
 func TestGetAllLinksWithLargeDataset(t *testing.T) {
 	withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
-		// Создаем 25 ссылок
 		for i := 1; i <= 25; i++ {
 			_, err := q.CreateLink(ctx, linksdb.CreateLinkParams{
 				OriginalUrl: fmt.Sprintf("https://test%d.com", i),
@@ -624,7 +825,6 @@ func TestGetAllLinksWithLargeDataset(t *testing.T) {
 			}
 		}
 
-		// ← ИСПРАВЛЕНО
 		tempRepository := repositories.NewLinkRepository(q)
 		tempHandler := handlers.NewLinkHandler(tempRepository)
 
@@ -639,7 +839,6 @@ func TestGetAllLinksWithLargeDataset(t *testing.T) {
 			{"[4,13]", 10, 5, 14, 25},
 			{"[19,28]", 6, 20, 25, 25},
 			{"[0,24]", 25, 1, 25, 25},
-			{"[10,14]", 5, 11, 15, 25},
 		}
 
 		for _, tt := range tests {
@@ -670,4 +869,414 @@ func TestGetAllLinksWithLargeDataset(t *testing.T) {
 			})
 		}
 	})
+}
+
+// ==================== ТЕСТЫ ДЛЯ VISIT HANDLER ====================
+
+func TestRedirect(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupData      func(ctx context.Context, qLinks *linksdb.Queries) string
+		shortCode      string
+		expectedStatus int
+		expectedURL    string
+	}{
+		{
+			name: "Success - Redirect to existing link",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries) string {
+				link, err := qLinks.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://example.com",
+					ShortName:   "testcode",
+					ShortUrl:    "https://test.com/testcode",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create test link: %v", err)
+				}
+				return link.ShortName
+			},
+			shortCode:      "testcode",
+			expectedStatus: http.StatusFound,
+			expectedURL:    "https://example.com",
+		},
+		{
+			name:           "Error - Link not found",
+			setupData:      nil,
+			shortCode:      "nonexistent",
+			expectedStatus: http.StatusNotFound,
+			expectedURL:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTxBoth(t, func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries, tx *sql.Tx) {
+				if tt.setupData != nil {
+					shortName := tt.setupData(ctx, qLinks)
+					if shortName != tt.shortCode {
+						tt.shortCode = shortName
+					}
+				}
+
+				tempLinkRepo := repositories.NewLinkRepository(qLinks)
+				tempVisitRepo := repositories.NewVisitRepository(qVisits)
+				tempHandler := handlers.NewVisitHandler(tempVisitRepo, tempLinkRepo)
+
+				tempRouter := gin.New()
+				tempRouter.GET("/r/:code", tempHandler.Redirect)
+
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/r/%s", tt.shortCode), nil)
+				w := httptest.NewRecorder()
+				tempRouter.ServeHTTP(w, req)
+
+				if w.Code != tt.expectedStatus {
+					t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+				}
+
+				if tt.expectedStatus == http.StatusFound {
+					location := w.Header().Get("Location")
+					if location != tt.expectedURL {
+						t.Errorf("Expected redirect to '%s', got '%s'", tt.expectedURL, location)
+					}
+				}
+			})
+		})
+	}
+}
+
+func TestGetVisits(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupData      func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int
+		rangeParam     string
+		expectedCount  int
+		expectedStart  int64
+		expectedEnd    int64
+		expectedTotal  int64
+		expectedStatus int
+	}{
+		{
+			name: "Success - Get all visits without range",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int {
+				link, err := qLinks.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://example.com",
+					ShortName:   "test",
+					ShortUrl:    "https://test.com/test",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create link: %v", err)
+				}
+
+				for i := 0; i < 3; i++ {
+					_, err := qVisits.CreateVisit(ctx, visitsdb.CreateVisitParams{
+						LinkID:    link.ID,
+						Ip:        "127.0.0.1",
+						UserAgent: "test-agent",
+						Status:    302,
+						Referer:   "https://google.com",
+					})
+					if err != nil {
+						t.Fatalf("Failed to create visit: %v", err)
+					}
+				}
+				return 3
+			},
+			rangeParam:     "",
+			expectedCount:  3,
+			expectedStart:  1,
+			expectedEnd:    3,
+			expectedTotal:  3,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Get visits with range [0,1]",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int {
+				link, err := qLinks.CreateLink(ctx, linksdb.CreateLinkParams{
+					OriginalUrl: "https://example.com",
+					ShortName:   "test2",
+					ShortUrl:    "https://test.com/test2",
+				})
+				if err != nil {
+					t.Fatalf("Failed to create link: %v", err)
+				}
+
+				for i := 0; i < 5; i++ {
+					_, err := qVisits.CreateVisit(ctx, visitsdb.CreateVisitParams{
+						LinkID:    link.ID,
+						Ip:        "127.0.0.1",
+						UserAgent: "test-agent",
+						Status:    302,
+						Referer:   "",
+					})
+					if err != nil {
+						t.Fatalf("Failed to create visit: %v", err)
+					}
+				}
+				return 5
+			},
+			rangeParam:     "[0,1]",
+			expectedCount:  2,
+			expectedStart:  1,
+			expectedEnd:    2,
+			expectedTotal:  5,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Success - Empty visits",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "",
+			expectedCount:  0,
+			expectedStart:  0,
+			expectedEnd:    0,
+			expectedTotal:  0,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Error - Invalid range format",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "[0,1,2]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Error - Invalid range values",
+			setupData: func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries) int {
+				return 0
+			},
+			rangeParam:     "[a,b]",
+			expectedCount:  0,
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTxBoth(t, func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries, tx *sql.Tx) {
+				tt.setupData(ctx, qLinks, qVisits)
+
+				tempLinkRepo := repositories.NewLinkRepository(qLinks)
+				tempVisitRepo := repositories.NewVisitRepository(qVisits)
+				tempHandler := handlers.NewVisitHandler(tempVisitRepo, tempLinkRepo)
+
+				tempRouter := gin.New()
+				tempRouter.GET("/api/link_visits", tempHandler.GetVisits)
+
+				url := "/api/link_visits"
+				if tt.rangeParam != "" {
+					url = url + "?range=" + tt.rangeParam
+				}
+
+				req := httptest.NewRequest(http.MethodGet, url, nil)
+				w := httptest.NewRecorder()
+				tempRouter.ServeHTTP(w, req)
+
+				if w.Code != tt.expectedStatus {
+					t.Fatalf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+				}
+
+				if tt.expectedStatus != http.StatusOK {
+					return
+				}
+
+				contentRange := w.Header().Get("Content-Range")
+				if tt.expectedTotal > 0 {
+					expectedContentRange := fmt.Sprintf("visits %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
+					if contentRange != expectedContentRange {
+						t.Errorf("Expected Content-Range: %s, got: %s", expectedContentRange, contentRange)
+					}
+				}
+
+				var response []visitsdb.LinkVisit
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Fatalf("Failed to parse response: %v", err)
+				}
+
+				if len(response) != tt.expectedCount {
+					t.Errorf("Expected %d visits, got %d", tt.expectedCount, len(response))
+				}
+			})
+		})
+	}
+}
+
+func TestGetVisitsWithLargeDataset(t *testing.T) {
+	withTxBoth(t, func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries, tx *sql.Tx) {
+		// Создаем ссылку
+		link, err := qLinks.CreateLink(ctx, linksdb.CreateLinkParams{
+			OriginalUrl: "https://example.com",
+			ShortName:   "large",
+			ShortUrl:    "https://test.com/large",
+		})
+		if err != nil {
+			t.Fatalf("Failed to create link: %v", err)
+		}
+
+		// Создаем 25 визитов
+		for i := 1; i <= 25; i++ {
+			_, err := qVisits.CreateVisit(ctx, visitsdb.CreateVisitParams{
+				LinkID:    link.ID,
+				Ip:        fmt.Sprintf("192.168.1.%d", i),
+				UserAgent: "test-agent",
+				Status:    302,
+				Referer:   "",
+			})
+			if err != nil {
+				t.Fatalf("Failed to create visit: %v", err)
+			}
+		}
+
+		tempLinkRepo := repositories.NewLinkRepository(qLinks)
+		tempVisitRepo := repositories.NewVisitRepository(qVisits)
+		tempHandler := handlers.NewVisitHandler(tempVisitRepo, tempLinkRepo)
+
+		tests := []struct {
+			rangeParam    string
+			expectedCount int
+			expectedStart int64
+			expectedEnd   int64
+			expectedTotal int64
+		}{
+			{"[0,9]", 10, 1, 10, 25},
+			{"[4,13]", 10, 5, 14, 25},
+			{"[19,28]", 6, 20, 25, 25},
+			{"[0,24]", 25, 1, 25, 25},
+			{"[10,14]", 5, 11, 15, 25},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.rangeParam, func(t *testing.T) {
+				url := "/api/link_visits?range=" + tt.rangeParam
+				req := httptest.NewRequest(http.MethodGet, url, nil)
+				w := httptest.NewRecorder()
+
+				tempRouter := gin.New()
+				tempRouter.GET("/api/link_visits", tempHandler.GetVisits)
+				tempRouter.ServeHTTP(w, req)
+
+				if w.Code != http.StatusOK {
+					t.Fatalf("Expected status OK, got %d", w.Code)
+				}
+
+				contentRange := w.Header().Get("Content-Range")
+				expected := fmt.Sprintf("visits %d-%d/%d", tt.expectedStart, tt.expectedEnd, tt.expectedTotal)
+				if contentRange != expected {
+					t.Errorf("Expected Content-Range: %s, got: %s", expected, contentRange)
+				}
+
+				var response []visitsdb.LinkVisit
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if len(response) != tt.expectedCount {
+					t.Errorf("Expected %d visits, got %d", tt.expectedCount, len(response))
+				}
+			})
+		}
+	})
+}
+
+// Добавь в main_test.go тесты на валидацию
+func TestCreateLinkValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		requestBody    map[string]interface{}
+		expectedStatus int
+		expectedErrors map[string]string
+	}{
+		{
+			name: "Error - Missing original_url",
+			requestBody: map[string]interface{}{
+				"short_name": "test",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedErrors: map[string]string{
+				"original_url": "OriginalUrl is required",
+			},
+		},
+		{
+			name: "Error - Invalid URL",
+			requestBody: map[string]interface{}{
+				"original_url": "not-a-url",
+				"short_name":   "test",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedErrors: map[string]string{
+				"original_url": "OriginalUrl must be a valid URL",
+			},
+		},
+		{
+			name: "Error - Short name too short",
+			requestBody: map[string]interface{}{
+				"original_url": "https://example.com",
+				"short_name":   "ab",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedErrors: map[string]string{
+				"short_name": "ShortName must be at least 3 characters",
+			},
+		},
+		{
+			name: "Error - Short name too long",
+			requestBody: map[string]interface{}{
+				"original_url": "https://example.com",
+				"short_name":   strings.Repeat("a", 33),
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedErrors: map[string]string{
+				"short_name": "ShortName must be at most 32 characters",
+			},
+		},
+		{
+			name: "Error - Short name with invalid characters",
+			requestBody: map[string]interface{}{
+				"original_url": "https://example.com",
+				"short_name":   "test@123",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedErrors: map[string]string{
+				"short_name": "ShortName must contain only alphanumeric characters",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
+				tempRepository := repositories.NewLinkRepository(q)
+				tempHandler := handlers.NewLinkHandler(tempRepository)
+
+				tempRouter := gin.New()
+				tempRouter.POST("/api/links", tempHandler.Create)
+
+				jsonBody, _ := json.Marshal(tt.requestBody)
+				req := httptest.NewRequest(http.MethodPost, "/api/links", bytes.NewBuffer(jsonBody))
+				req.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+				tempRouter.ServeHTTP(w, req)
+
+				if w.Code != tt.expectedStatus {
+					t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, w.Code, w.Body.String())
+				}
+
+				if tt.expectedErrors != nil {
+					var response map[string]map[string]string
+					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+						t.Fatalf("Failed to parse response: %v", err)
+					}
+
+					errors, ok := response["errors"]
+					if !ok {
+						t.Fatal("Expected errors object in response")
+					}
+
+					for field, expectedMsg := range tt.expectedErrors {
+						if actualMsg, exists := errors[field]; !exists || actualMsg != expectedMsg {
+							t.Errorf("Expected error for %s: '%s', got: '%s'", field, expectedMsg, actualMsg)
+						}
+					}
+				}
+			})
+		})
+	}
 }

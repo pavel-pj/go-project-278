@@ -4,6 +4,7 @@ package dto
 import (
 	"database/sql"
 	linksdb "db200/internal/db/links"
+	"time"
 )
 
 // AllLinkRequest - структура для Index запроса
@@ -14,16 +15,17 @@ type AllLinkRequest struct {
 // CreateLinkRequest - структура для JSON запроса
 type CreateLinkRequest struct {
 	OriginalUrl string `json:"original_url" binding:"required,url"`
-	ShortName   string `json:"short_name"`
-	ShortUrl    string `json:"short_url"`
+	ShortName   string `json:"short_name" binding:"omitempty,min=3,max=32,alphanum"`
+	ShortUrl    string `json:"short_url,omitempty"`
 }
 
 // ResponseLink- структура для JSON ответ
 type LinkResponse struct {
-	ID          int32  `json:"id"`
-	OriginalUrl string `json:"original_url"`
-	ShortName   string `json:"short_name"`
-	ShortUrl    string `json:"short_url"`
+	ID          int32     `json:"id"`
+	OriginalUrl string    `json:"original_url"`
+	ShortName   string    `json:"short_name"`
+	ShortUrl    string    `json:"short_url"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
 }
 
 // ToCreateLinkParams конвертирует DTO в sqlc структуру
@@ -39,8 +41,8 @@ func (r *CreateLinkRequest) ToCreateLinkParams() linksdb.CreateLinkParams {
 
 // UpdateLinkRequest - структура для JSON запроса
 type UpdateLinkRequest struct {
-	OriginalUrl *string `json:"original_url,omitempty" binding:"omitempty,url"` // валидация только если поле присутствует
-	ShortName   *string `json:"short_name,omitempty"`
+	OriginalUrl *string `json:"original_url" binding:"omitempty,url"`
+	ShortName   *string `json:"short_name" binding:"omitempty,min=3,max=32,alphanum"`
 }
 
 // ToUpdateLinkParams конвертирует DTO в sqlc структуру

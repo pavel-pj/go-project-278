@@ -7,20 +7,20 @@ package visits
 
 import (
 	"context"
-	"database/sql"
 )
 
 const createVisit = `-- name: CreateVisit :one
-INSERT INTO link_visits (link_id , ip , user_agent,status)
-values($1,$2,$3,$4)
-RETURNING id, link_id, created_at, ip, user_agent, status
+INSERT INTO link_visits (link_id , ip , user_agent,status, referer)
+values($1,$2,$3,$4,$5)
+RETURNING id, link_id, created_at, ip, user_agent, status, referer
 `
 
 type CreateVisitParams struct {
-	LinkID    sql.NullInt32
-	Ip        sql.NullString
-	UserAgent sql.NullString
-	Status    sql.NullInt32
+	LinkID    int32
+	Ip        string
+	UserAgent string
+	Status    int32
+	Referer   string
 }
 
 func (q *Queries) CreateVisit(ctx context.Context, arg CreateVisitParams) (LinkVisit, error) {
@@ -29,6 +29,7 @@ func (q *Queries) CreateVisit(ctx context.Context, arg CreateVisitParams) (LinkV
 		arg.Ip,
 		arg.UserAgent,
 		arg.Status,
+		arg.Referer,
 	)
 	var i LinkVisit
 	err := row.Scan(
@@ -38,6 +39,7 @@ func (q *Queries) CreateVisit(ctx context.Context, arg CreateVisitParams) (LinkV
 		&i.Ip,
 		&i.UserAgent,
 		&i.Status,
+		&i.Referer,
 	)
 	return i, err
 }

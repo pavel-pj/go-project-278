@@ -58,6 +58,7 @@ TEST_DB_NAME ?= testdb
 test:
 	@echo "Running tests inside container..."
 	docker compose exec -T backend go test -v -tags=integration -timeout 5m .
+	
  
 # Запуск тестов с покрытием
 test-coverage:
