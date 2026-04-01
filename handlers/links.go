@@ -98,7 +98,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	// Убираем trailing slash если есть
 	baseSite = strings.TrimSuffix(baseSite, "/")
-	req.ShortUrl = fmt.Sprintf("%s/%s", baseSite, req.ShortName)
+	req.ShortUrl = fmt.Sprintf("%s/r/%s", baseSite, req.ShortName)
 
 	params := linksdb.CreateLinkParams{
 		OriginalUrl: req.OriginalUrl,
@@ -246,9 +246,10 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		baseSite = strings.TrimSuffix(baseSite, "/")
 
 		updateParams.ShortUrl = sql.NullString{
-			String: baseSite + "/" + *req.ShortName,
+			String: baseSite + "/r/" + *req.ShortName,
 			Valid:  true,
 		}
+
 	}
 
 	updateLink, err := h.repository.UpdateLink(c.Request.Context(), updateParams)

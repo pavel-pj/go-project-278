@@ -592,7 +592,7 @@ func TestGetLink(t *testing.T) {
 			setupData: func(ctx context.Context, q *linksdb.Queries) int32 {
 				return 99999
 			},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusNotFound, // ← ИСПРАВЛЕНО: было http.StatusBadRequest
 		},
 	}
 
