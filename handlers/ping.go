@@ -7,8 +7,5 @@ import (
 )
 
 func PingHandler(c *gin.Context) {
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "pong2",
-	})
+	c.JSON(http.StatusOK, gin.H{"data": "pong"})
 }

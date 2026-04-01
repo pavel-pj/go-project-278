@@ -34,7 +34,6 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	// Валидируем JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Проверяем, это ошибка валидации или ошибка парсинга JSON
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
 			HandleValidationErrors(c, validationErrors)
@@ -46,7 +45,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Дополнительная валидация через validator
+	// Валидация через validator
 	if err := h.validator.Struct(req); err != nil {
 		var validationErrors validator.ValidationErrors
 		if errors.As(err, &validationErrors) {
@@ -75,8 +74,8 @@ func (h *LinkHandler) Create(c *gin.Context) {
 		baseSite = "https://base-site.com"
 	}
 
+	// Если short_name передан - проверяем уникальность
 	if req.ShortName != "" {
-		// Проверяем уникальность short_name
 		_, err = h.repository.GetLinkByShortName(c.Request.Context(), req.ShortName)
 		if err == nil {
 			c.JSON(http.StatusConflict, gin.H{
@@ -109,7 +108,6 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	r, err := h.repository.Create(c.Request.Context(), params)
 	if err != nil {
-		// Обработка ошибки уникальности PostgreSQL (23505)
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 			if strings.Contains(pqErr.Message, "original_url") {
@@ -457,7 +455,13 @@ func (h *LinkHandler) GetLink(c *gin.Context) {
 
 	r, err := h.repository.GetLink(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "link not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
 		return
