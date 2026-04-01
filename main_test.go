@@ -1280,3 +1280,53 @@ func TestCreateLinkValidation(t *testing.T) {
 		})
 	}
 }
+
+// Добавьте в main_test.go
+func TestRedirectCreatesVisit(t *testing.T) {
+	withTxBoth(t, func(ctx context.Context, qLinks *linksdb.Queries, qVisits *visitsdb.Queries, tx *sql.Tx) {
+		// Создаем ссылку
+		_, err := qLinks.CreateLink(ctx, linksdb.CreateLinkParams{
+			OriginalUrl: "https://example.com",
+			ShortName:   "testvisit",
+			ShortUrl:    "https://test.com/testvisit",
+		})
+		if err != nil {
+			t.Fatalf("Failed to create test link: %v", err)
+		}
+
+		tempLinkRepo := repositories.NewLinkRepository(qLinks)
+		tempVisitRepo := repositories.NewVisitRepository(qVisits)
+		tempHandler := handlers.NewVisitHandler(tempVisitRepo, tempLinkRepo)
+
+		tempRouter := gin.New()
+		tempRouter.GET("/r/:code", tempHandler.Redirect)
+
+		// Выполняем редирект
+		req := httptest.NewRequest(http.MethodGet, "/r/testvisit", nil)
+		w := httptest.NewRecorder()
+		tempRouter.ServeHTTP(w, req)
+
+		// Проверяем статус редиректа
+		if w.Code != http.StatusFound {
+			t.Errorf("Expected status %d, got %d", http.StatusFound, w.Code)
+		}
+
+		// Проверяем Location заголовок
+		location := w.Header().Get("Location")
+		if location != "https://example.com" {
+			t.Errorf("Expected Location 'https://example.com', got '%s'", location)
+		}
+
+		// Проверяем, что визит был создан
+		// Для этого нужно добавить метод GetVisitsByLinkID
+		// Пока проверим через общее количество
+		count, err := qVisits.GetVisitsCount(ctx)
+		if err != nil {
+			t.Errorf("Failed to get visits count: %v", err)
+		}
+
+		if count != 1 {
+			t.Errorf("Expected 1 visit, got %d", count)
+		}
+	})
+}

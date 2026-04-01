@@ -28,6 +28,9 @@ func NewRouter(app *app.App) *gin.Engine {
 
 	router := gin.Default()
 
+	// Если Render не за Cloudflare — заголовка нет, Gin продолжит брать X-Forwarded-For.
+	router.TrustedPlatform = gin.PlatformCloudflare
+
 	// ✅ ВСТАВИТЬ CORS СЮДА (до объявления маршрутов)
 	config := cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
