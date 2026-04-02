@@ -15,7 +15,7 @@ type AllLinkRequest struct {
 // CreateLinkRequest - структура для JSON запроса
 type CreateLinkRequest struct {
 	OriginalUrl string `json:"original_url" binding:"required,url"`
-	ShortName   string `json:"short_name" binding:"omitempty,min=3,max=32,alphanum"`
+	ShortName   string `json:"short_name" binding:"omitempty,min=3,max=32"`
 	ShortUrl    string `json:"short_url,omitempty"`
 }
 
@@ -42,7 +42,7 @@ func (r *CreateLinkRequest) ToCreateLinkParams() linksdb.CreateLinkParams {
 // UpdateLinkRequest - структура для JSON запроса
 type UpdateLinkRequest struct {
 	OriginalUrl *string `json:"original_url" binding:"omitempty,url"`
-	ShortName   *string `json:"short_name" binding:"omitempty,min=3,max=32,alphanum"`
+	ShortName   *string `json:"short_name" binding:"omitempty,min=3,max=32"`
 }
 
 // ToUpdateLinkParams конвертирует DTO в sqlc структуру
