@@ -39,7 +39,6 @@ func (h *LinkHandler) Create(c *gin.Context) {
 			HandleValidationErrors(c, validationErrors)
 			return
 		}
-
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid request",
 		})
@@ -99,7 +98,7 @@ func (h *LinkHandler) Create(c *gin.Context) {
 
 	// Убираем trailing slash если есть
 	baseSite = strings.TrimSuffix(baseSite, "/")
-	req.ShortUrl = fmt.Sprintf("%s/%s", baseSite, req.ShortName)
+	req.ShortUrl = fmt.Sprintf("%s/r/%s", baseSite, req.ShortName)
 
 	params := linksdb.CreateLinkParams{
 		OriginalUrl: req.OriginalUrl,
@@ -247,7 +246,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		baseSite = strings.TrimSuffix(baseSite, "/")
 
 		updateParams.ShortUrl = sql.NullString{
-			String: baseSite + "/" + *req.ShortName,
+			String: baseSite + "/r/" + *req.ShortName,
 			Valid:  true,
 		}
 

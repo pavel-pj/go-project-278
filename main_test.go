@@ -427,7 +427,7 @@ func TestUpdateLink(t *testing.T) {
 				if response.ShortName != "newname" {
 					t.Errorf("Expected short_name 'newname', got '%s'", response.ShortName)
 				}
-				expectedShortUrl := "https://test.com/newname"
+				expectedShortUrl := "https://test.com/r/newname"
 				if response.ShortUrl != expectedShortUrl {
 					t.Errorf("Expected short_url '%s', got '%s'", expectedShortUrl, response.ShortUrl)
 				}

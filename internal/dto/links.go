@@ -21,11 +21,11 @@ type CreateLinkRequest struct {
 
 // ResponseLink- структура для JSON ответ
 type LinkResponse struct {
-	ID          int32     `json:"id"`
-	OriginalUrl string    `json:"original_url"`
-	ShortName   string    `json:"short_name"`
-	ShortUrl    string    `json:"short_url"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
+	ID          int32      `json:"id"`
+	OriginalUrl string     `json:"original_url"`
+	ShortName   string     `json:"short_name"`
+	ShortUrl    string     `json:"short_url"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
 }
 
 // ToCreateLinkParams конвертирует DTO в sqlc структуру
