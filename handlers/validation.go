@@ -35,10 +35,15 @@ func HandleValidationErrors(c *gin.Context, err error) {
 				errorsMap[jsonField] = field + " is invalid"
 			}
 		}
-
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
+		/*
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"errors": errorsMap,
+			})
+		*/
+		c.JSON(http.StatusEarlyHints, gin.H{
 			"errors": errorsMap,
 		})
+
 		c.Abort()
 		return
 	}
