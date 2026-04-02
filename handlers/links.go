@@ -154,6 +154,20 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 
 	id := int32(id64)
 
+	_, err = h.repository.GetLink(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "link not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
 	var req dto.UpdateLinkRequest
 
 	// Валидируем JSON
