@@ -41,13 +41,13 @@ func Connect() (*sql.DB, error) {
 		SSLMode:    getEnv("SSL_MODE", "disable"),
 	}
 
-	log.Println("🔄 Using local database configuration")
+	log.Println("Using local database configuration")
 	return connectFromConfig(cfg)
 }
 
 // connectFromURL подключается по DATABASE_URL (для Render)
 func connectFromURL(dbURL string) (*sql.DB, error) {
-	// Render использует формат: postgresql://...
+
 	// Преобразуем в postgres:// если нужно
 	dbURL = strings.Replace(dbURL, "postgresql://", "postgres://", 1)
 
@@ -59,8 +59,6 @@ func connectFromURL(dbURL string) (*sql.DB, error) {
 			dbURL += "?sslmode=require"
 		}
 	}
-
-	log.Printf("🔗 Connecting with URL: %s", dbURL)
 
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
@@ -80,7 +78,7 @@ func connectFromConfig(cfg Config) (*sql.DB, error) {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName, cfg.SSLMode)
 
-	log.Printf("🔗 Connecting to: %s:%s/%s", cfg.DBHost, cfg.DBPort, cfg.DBName)
+	log.Printf("Connecting to: %s:%s/%s", cfg.DBHost, cfg.DBPort, cfg.DBName)
 
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
@@ -110,7 +108,7 @@ func configureDB(db *sql.DB) (*sql.DB, error) {
 		return nil, fmt.Errorf("database not reachable: %w", err)
 	}
 
-	log.Println("✅ Database connection established")
+	log.Println("Database connection established")
 	return db, nil
 }
 

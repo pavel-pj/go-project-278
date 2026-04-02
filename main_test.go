@@ -21,6 +21,7 @@ import (
 	visitsdb "db200/internal/db/visits"
 	"db200/internal/dto"
 	"db200/repositories"
+	"db200/services"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -93,7 +94,7 @@ func TestMain(m *testing.M) {
 	gin.SetMode(gin.ReleaseMode)
 	ctx := context.Background()
 
-	fmt.Println("🚀 Starting PostgreSQL container...")
+	fmt.Println("Starting PostgreSQL container...")
 
 	pgContainer, err := postgres.Run(ctx, "postgres:16",
 		postgres.WithDatabase("testdb"),
@@ -174,8 +175,9 @@ func TestMain(m *testing.M) {
 
 	linkRepository := repositories.NewLinkRepository(testQueriesLinks)
 	visitRepository := repositories.NewVisitRepository(testQueriesVisits)
+	linkService := services.NewLinkService()
 
-	testLinkHandler = handlers.NewLinkHandler(linkRepository)
+	testLinkHandler = handlers.NewLinkHandler(linkRepository, linkService)
 	testVisitHandler = handlers.NewVisitHandler(visitRepository, linkRepository)
 
 	testRouter = gin.New()
@@ -309,7 +311,8 @@ func TestCreateLink(t *testing.T) {
 				}
 
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.POST("/api/links", tempHandler.Create)
@@ -509,7 +512,8 @@ func TestUpdateLink(t *testing.T) {
 				id := tt.setupData(ctx, q)
 
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.PUT("/api/links/:id", tempHandler.UpdateLink)
@@ -602,7 +606,8 @@ func TestGetLink(t *testing.T) {
 				id := tt.setupData(ctx, q)
 
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.GET("/api/links/:id", tempHandler.GetLink)
@@ -671,7 +676,8 @@ func TestDeleteLink(t *testing.T) {
 				id := tt.setupData(ctx, q)
 
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.DELETE("/api/links/:id", tempHandler.DeleteLink)
@@ -769,7 +775,8 @@ func TestGetAllLinks(t *testing.T) {
 				tt.setupData(ctx, q)
 
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.GET("/api/links", tempHandler.GetAllLinks)
@@ -826,7 +833,8 @@ func TestGetAllLinksWithLargeDataset(t *testing.T) {
 		}
 
 		tempRepository := repositories.NewLinkRepository(q)
-		tempHandler := handlers.NewLinkHandler(tempRepository)
+		tempService := services.NewLinkService()
+		tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 		tests := []struct {
 			rangeParam    string
@@ -1241,8 +1249,10 @@ func TestCreateLinkValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withTx(t, func(ctx context.Context, q *linksdb.Queries, tx *sql.Tx) {
+
 				tempRepository := repositories.NewLinkRepository(q)
-				tempHandler := handlers.NewLinkHandler(tempRepository)
+				tempService := services.NewLinkService()
+				tempHandler := handlers.NewLinkHandler(tempRepository, tempService)
 
 				tempRouter := gin.New()
 				tempRouter.POST("/api/links", tempHandler.Create)

@@ -9,7 +9,7 @@ import (
 
 func registerRoutes(router *gin.Engine, app *app.App) {
 
-	linkHandler := h.NewLinkHandler(app.Repositories.Links)
+	linkHandler := h.NewLinkHandler(app.Repositories.Links, app.Services.Links)
 	visitHandler := h.NewVisitHandler(app.Repositories.Visits, app.Repositories.Links)
 
 	router.GET("/ping", h.PingHandler)

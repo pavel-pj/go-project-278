@@ -5,6 +5,7 @@ import (
 	linksdb "db200/internal/db/links"
 	"db200/internal/dto"
 	r "db200/repositories"
+	s "db200/services"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,12 +21,14 @@ import (
 type LinkHandler struct {
 	repository *r.LinkRepository
 	validator  *validator.Validate
+	service    *s.LinkService
 }
 
-func NewLinkHandler(repository *r.LinkRepository) *LinkHandler {
+func NewLinkHandler(repository *r.LinkRepository, service *s.LinkService) *LinkHandler {
 	return &LinkHandler{
 		repository: repository,
 		validator:  validator.New(),
+		service:    s.NewLinkService(),
 	}
 }
 
@@ -306,7 +309,7 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 
 	// Парсим параметры
-	startRange, endRange, hasRange := h.parseRangeParam(c)
+	startRange, endRange, hasRange := h.service.ParseRangeParam(c)
 
 	// Получаем общее количество
 	totalCount, err := h.repository.GetLinksCount(c.Request.Context())
@@ -318,7 +321,7 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 	}
 
 	// Корректируем значения
-	offset, limit, newStart, newEnd := h.calculatePagination(startRange, endRange, hasRange, totalCount)
+	offset, limit, newStart, newEnd := h.service.CalculatePagination(startRange, endRange, hasRange, totalCount)
 
 	// Устанавливаем заголовок
 	contentRange := fmt.Sprintf("links %d-%d/%d", newStart, newEnd, totalCount)
@@ -359,101 +362,104 @@ func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+/*
 // parseRangeParam парсит параметр range и возвращает start, end и флаг наличия
-func (h *LinkHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRange bool) {
-	rangeParam := c.Query("range")
-	if rangeParam == "" {
-		return 0, 9, false // default: первые 10 записей (0-9)
+
+	func (h *LinkHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRange bool) {
+		rangeParam := c.Query("range")
+		if rangeParam == "" {
+			return 0, 9, false // default: первые 10 записей (0-9)
+		}
+
+		trimmed := strings.Trim(rangeParam, "[]")
+		parts := strings.Split(trimmed, ",")
+
+		if len(parts) != 2 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid range format, expected [start,end]",
+			})
+			return 0, 0, true
+		}
+
+		var err1, err2 error
+		start, err1 = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+		end, err2 = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+
+		if err1 != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid range values, expected numbers",
+			})
+			return 0, 0, true
+		}
+
+		if start < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "start must be >= 0",
+			})
+			return 0, 0, true
+		}
+
+		if end <= start {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "end must be greater than start",
+			})
+			return 0, 0, true
+		}
+
+		return start, end, true
 	}
-
-	trimmed := strings.Trim(rangeParam, "[]")
-	parts := strings.Split(trimmed, ",")
-
-	if len(parts) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid range format, expected [start,end]",
-		})
-		return 0, 0, true
-	}
-
-	var err1, err2 error
-	start, err1 = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	end, err2 = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-
-	if err1 != nil || err2 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid range values, expected numbers",
-		})
-		return 0, 0, true
-	}
-
-	if start < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "start must be >= 0",
-		})
-		return 0, 0, true
-	}
-
-	if end <= start {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "end must be greater than start",
-		})
-		return 0, 0, true
-	}
-
-	return start, end, true
-}
 
 // calculatePagination вычисляет offset, limit и скорректированные start/end
-func (h *LinkHandler) calculatePagination(startRange, endRange int64, hasRange bool, totalCount int64) (offset, limit int32, newStart, newEnd int64) {
-	if hasRange {
-		// Если totalCount == 0, возвращаем пустой результат
+
+	func (h *LinkHandler) calculatePagination(startRange, endRange int64, hasRange bool, totalCount int64) (offset, limit int32, newStart, newEnd int64) {
+		if hasRange {
+			// Если totalCount == 0, возвращаем пустой результат
+			if totalCount == 0 {
+				return 0, 0, 0, 0
+			}
+
+			// Корректируем endRange (не выходим за пределы)
+			if endRange >= totalCount {
+				endRange = totalCount - 1
+			}
+
+			// Проверяем, есть ли данные в диапазоне
+			if startRange <= endRange {
+				//nolint:gosec
+				offset = int32(startRange)
+				//nolint:gosec
+				limit = int32(endRange - startRange + 1)
+
+				// Для Content-Range используем единичную индексацию (как требует HTTP)
+				newStart = startRange + 1
+				newEnd = endRange + 1
+
+				return offset, limit, newStart, newEnd
+			}
+
+			// Нет данных в диапазоне
+			return 0, 0, startRange + 1, 0
+		}
+
+		// Без range - дефолтные значения
 		if totalCount == 0 {
 			return 0, 0, 0, 0
 		}
 
-		// Корректируем endRange (не выходим за пределы)
-		if endRange >= totalCount {
-			endRange = totalCount - 1
+		// По умолчанию берем первые 10 записей
+		limit = 10
+		if totalCount < 10 {
+			//nolint:gosec
+			limit = int32(totalCount)
 		}
 
-		// Проверяем, есть ли данные в диапазоне
-		if startRange <= endRange {
-			//nolint:gosec
-			offset = int32(startRange)
-			//nolint:gosec
-			limit = int32(endRange - startRange + 1)
+		offset = 0
+		newStart = 1
+		newEnd = int64(limit)
 
-			// Для Content-Range используем единичную индексацию (как требует HTTP)
-			newStart = startRange + 1
-			newEnd = endRange + 1
-
-			return offset, limit, newStart, newEnd
-		}
-
-		// Нет данных в диапазоне
-		return 0, 0, startRange + 1, 0
+		return offset, limit, newStart, newEnd
 	}
-
-	// Без range - дефолтные значения
-	if totalCount == 0 {
-		return 0, 0, 0, 0
-	}
-
-	// По умолчанию берем первые 10 записей
-	limit = 10
-	if totalCount < 10 {
-		//nolint:gosec
-		limit = int32(totalCount)
-	}
-
-	offset = 0
-	newStart = 1
-	newEnd = int64(limit)
-
-	return offset, limit, newStart, newEnd
-}
-
+*/
 func (h *LinkHandler) GetLink(c *gin.Context) {
 
 	idParam := c.Param("id")
