@@ -11,10 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NewRouter creates and configures a new Gin router with all necessary middleware
-// and routes. It initializes Sentry for error tracking if the SENTRY_DSN environment
-// variable is set. The router is pre-configured with default Gin middleware and
-// registered routes for the application.
+// Инициализация Роутера
 func NewRouter(app *app.App) *gin.Engine {
 	// Инициализация Sentry
 	sentryDSN := os.Getenv("SENTRY_DSN")
@@ -31,7 +28,7 @@ func NewRouter(app *app.App) *gin.Engine {
 	// Если Render не за Cloudflare — заголовка нет, Gin продолжит брать X-Forwarded-For.
 	router.TrustedPlatform = gin.PlatformCloudflare
 
-	// ✅ ВСТАВИТЬ CORS СЮДА (до объявления маршрутов)
+	// CORS (до объявления маршрутов)
 	config := cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -49,7 +46,6 @@ func NewRouter(app *app.App) *gin.Engine {
 		}))
 	}
 
-	// Добавьте после CORS, но до маршрутов
 	router.Use(func(c *gin.Context) {
 		c.Next()
 

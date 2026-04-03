@@ -31,22 +31,22 @@ func (h *VisitHandler) Redirect(c *gin.Context) {
 		return
 	}
 
-	// Get link by short name
+	// Получили ссылку по short name
 	link, err := h.LinkRepository.GetLinkByShortName(c.Request.Context(), shortName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 		return
 	}
 
-	// Get client information
+	// Клиентская информация
 	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	referer := c.GetHeader("Referer")
 
-	// Determine redirect status (302 Found for temporary redirect)
-	status := http.StatusFound // 302
+	//  302 статус
+	status := http.StatusFound
 
-	// Record visit
+	// создаем визит
 	_, err = h.VisitRepository.Create(c.Request.Context(), visitsdb.CreateVisitParams{
 		LinkID:    link.ID,
 		Ip:        ip,
@@ -55,11 +55,10 @@ func (h *VisitHandler) Redirect(c *gin.Context) {
 		Referer:   referer,
 	})
 	if err != nil {
-		// Log error but still redirect
-		_ = c.Error(err) // игнорируем ошибку, так как редирект важнее
+		// игнорируем ошибку, так как редирект важнее
+		_ = c.Error(err)
 	}
 
-	// Perform redirect
 	c.Redirect(status, link.OriginalUrl)
 }
 
