@@ -169,30 +169,6 @@ func TestMain(m *testing.M) {
 
 	fmt.Println("✅ Migrations completed")
 
-	// Инициализация репозиториев и хендлеров
-	testQueriesLinks := linksdb.New(testDB)
-	testQueriesVisits := visitsdb.New(testDB)
-
-	linkRepository := repositories.NewLinkRepository(testQueriesLinks)
-	visitRepository := repositories.NewVisitRepository(testQueriesVisits)
-	linkService := services.NewLinkService()
-
-	testLinkHandler = handlers.NewLinkHandler(linkRepository, linkService)
-	testVisitHandler = handlers.NewVisitHandler(visitRepository, linkRepository)
-
-	testRouter = gin.New()
-
-	// Роуты для ссылок
-	testRouter.POST("/api/links", testLinkHandler.Create)
-	testRouter.GET("/api/links", testLinkHandler.GetAllLinks)
-	testRouter.GET("/api/links/:id", testLinkHandler.GetLink)
-	testRouter.PUT("/api/links/:id", testLinkHandler.UpdateLink)
-	testRouter.DELETE("/api/links/:id", testLinkHandler.DeleteLink)
-
-	// Роуты для визитов
-	testRouter.GET("/r/:code", testVisitHandler.Redirect)
-	testRouter.GET("/api/link_visits", testVisitHandler.GetVisits)
-
 	os.Setenv("BASE_SITE", "https://test.com")
 
 	fmt.Println("🏃 Running tests...")
