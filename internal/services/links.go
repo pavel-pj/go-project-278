@@ -1,11 +1,23 @@
 package services
 
 import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"errors"
+	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+)
+
+// ErrCannotGenerateUniqueName is returned when the system fails to generate
+// a unique short name after multiple attempts.
+var (
+	ErrCannotGenerateUniqueName = errors.New("cannot generate unique short name")
 )
 
 // LinkService обрабатывает бизнес-логику для ссылок
@@ -110,4 +122,29 @@ func (h *LinkService) CalculatePagination(startRange, endRange int64, hasRange b
 	newEnd = int64(limit)
 
 	return offset, limit, newStart, newEnd
+}
+
+// GenerateShortName create a unique URL for the link if a user doesnt provide a short_name param
+func (h *LinkService) GenerateShortName(ctx context.Context) (string, error) {
+	length := 10
+	base62Chars := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+	for attempt := 1; attempt <= 20; attempt++ {
+		result := make([]byte, length)
+		for i := range result {
+			// Генерируем случайное число от 0 до len(base62Chars)-1
+			num, err := rand.Int(rand.Reader, big.NewInt(int64(len(base62Chars))))
+			if err != nil {
+				return "", fmt.Errorf("failed to generate random number: %w", err)
+			}
+			result[i] = base62Chars[num.Int64()]
+		}
+
+		_, err := h.queries.GetLinkByShortName(ctx, string(result))
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return string(result), nil
+		}
+	}
+
+	return "", ErrCannotGenerateUniqueName
 }

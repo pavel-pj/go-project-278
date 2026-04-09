@@ -2,20 +2,10 @@ version: "2"
 
 sql:
   - engine: "postgresql"   
-    schema: "db/schema/links.sql"
-    queries: "queries/links"
+    schema: "internal/db/migrations"
+    queries: "internal/db/queries"
     gen:
       go:
-        package: "linksdb"
-        out: "internal/db/links"
-        emit_interface: true
-        #sql_package: "database/sql"  
-
-  - engine: "postgresql"   
-    schema: "db/schema/visits.sql"   
-    queries: "queries/visits"        
-    gen:
-      go:
-        package: "visits"           
-        out: "internal/db/visits"    
-        emit_interface: true  
+        #sql_package: "pgx/v5"
+        out: "internal/db/generated" 
+ 

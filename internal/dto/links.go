@@ -3,7 +3,7 @@ package dto
 
 import (
 	"database/sql"
-	linksdb "db200/internal/db/links"
+	"db200/internal/db/generated"
 	"time"
 )
 
@@ -29,8 +29,8 @@ type LinkResponse struct {
 }
 
 // ToCreateLinkParams конвертирует DTO в sqlc структуру
-func (r *CreateLinkRequest) ToCreateLinkParams() linksdb.CreateLinkParams {
-	params := linksdb.CreateLinkParams{
+func (r *CreateLinkRequest) ToCreateLinkParams() generated.CreateLinkParams {
+	params := generated.CreateLinkParams{
 		OriginalUrl: r.OriginalUrl,
 		ShortName:   r.ShortName,
 		ShortUrl:    r.ShortUrl,
@@ -46,8 +46,8 @@ type UpdateLinkRequest struct {
 }
 
 // ToUpdateLinkParams конвертирует DTO в sqlc структуру
-func (r *UpdateLinkRequest) ToUpdateLinkParams(linkID int32) linksdb.UpdateLinkParams {
-	params := linksdb.UpdateLinkParams{
+func (r *UpdateLinkRequest) ToUpdateLinkParams(linkID int32) generated.UpdateLinkParams {
+	params := generated.UpdateLinkParams{
 		ID:          linkID,
 		OriginalUrl: sql.NullString{String: "", Valid: false},
 		ShortName:   sql.NullString{String: "", Valid: false},

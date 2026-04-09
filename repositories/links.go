@@ -3,6 +3,7 @@
 // and other business rules for managing shortened links.
 package repositories
 
+/*
 import (
 	"context"
 	"crypto/rand"
@@ -169,3 +170,4 @@ func (s *LinkRepository) UpdateLink(
 	}
 	return link, nil
 }
+*/

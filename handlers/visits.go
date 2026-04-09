@@ -1,8 +1,8 @@
 package handlers
 
+/*
 import (
-	visitsdb "db200/internal/db/visits"
-	r "db200/repositories"
+	"db200/internal/db/generated"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,8 +12,7 @@ import (
 )
 
 type VisitHandler struct {
-	VisitRepository *r.VisitRepository
-	LinkRepository  *r.LinkRepository
+	queries   *generated.Queries
 }
 
 func NewVisitHandler(visitRepository *r.VisitRepository, linkRepository *r.LinkRepository) *VisitHandler {
@@ -208,3 +207,4 @@ func (h *VisitHandler) calculatePagination(startRange, endRange int64, hasRange 
 
 	return offset, limit, newStart, newEnd
 }
+*/

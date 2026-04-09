@@ -2,10 +2,8 @@ package app
 
 import (
 	"database/sql"
-	linksdb "db200/internal/db/links"
-	visitsdb "db200/internal/db/visits"
-	"db200/repositories"
-	"db200/services"
+	"db200/internal/db/generated"
+	"db200/internal/services"
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -13,21 +11,9 @@ import (
 
 // App хранит ВСЕ зависимости приложения
 type App struct {
-	DB           *sql.DB
-	Queries      *Queries
-	Repositories *Repository
-	Services     *Service
-}
-
-// Queries содержит ВСЕ SQLC queries
-type Queries struct {
-	Links  *linksdb.Queries
-	Visits *visitsdb.Queries
-}
-
-type Repository struct {
-	Links  *repositories.LinkRepository
-	Visits *repositories.VisitRepository
+	DB       *sql.DB
+	Queries  *generated.Queries
+	Services *Service
 }
 
 type Service struct {
@@ -35,25 +21,16 @@ type Service struct {
 }
 
 func NewApp(db *sql.DB) *App {
-	queries := &Queries{
-		Links:  linksdb.New(db),
-		Visits: visitsdb.New(db),
-	}
-
-	repositories := &Repository{
-		Links:  repositories.NewLinkRepository(queries.Links),
-		Visits: repositories.NewVisitRepository(queries.Visits),
-	}
+	queries := generated.New(db)
 
 	services := &Service{
 		Links: services.NewLinkService(),
 	}
 
 	return &App{
-		DB:           db,
-		Queries:      queries,
-		Repositories: repositories,
-		Services:     services,
+		DB:       db,
+		Queries:  queries,
+		Services: services,
 	}
 }
 
