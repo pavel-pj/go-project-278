@@ -24,7 +24,7 @@ func NewApp(db *sql.DB) *App {
 	queries := generated.New(db)
 
 	services := &Service{
-		Links: services.NewLinkService(),
+		Links: services.NewLinkService(queries),
 	}
 
 	return &App{

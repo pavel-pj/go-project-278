@@ -21,7 +21,7 @@ SELECT * FROM links
 where original_url = ($1)
 and id != $2;
 
--- name: GetLinkByShortNameExcluedeID :one
+-- name: GetLinkByShortNameExcludeID :one
 SELECT * FROM links 
 where short_name = ($1)
 and id != $2;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"db200/internal/db/generated"
 	"errors"
 	"fmt"
 	"math/big"
@@ -22,11 +23,14 @@ var (
 
 // LinkService обрабатывает бизнес-логику для ссылок
 type LinkService struct {
+	queries *generated.Queries
 }
 
 // NewLinkService создает сервис
-func NewLinkService() *LinkService {
-	return &LinkService{}
+func NewLinkService(queries *generated.Queries) *LinkService {
+	return &LinkService{
+		queries: queries,
+	}
 }
 
 // parseRangeParam парсит параметр range и возвращает start, end и флаг наличия

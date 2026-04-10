@@ -1,24 +1,23 @@
 package handlers
 
-/*
 import (
 	"db200/internal/db/generated"
+	s "db200/internal/services"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type VisitHandler struct {
-	queries   *generated.Queries
+	queries *generated.Queries
+	service *s.VisitService
 }
 
-func NewVisitHandler(visitRepository *r.VisitRepository, linkRepository *r.LinkRepository) *VisitHandler {
+func NewVisitHandler(queries *generated.Queries) *VisitHandler {
 	return &VisitHandler{
-		LinkRepository:  linkRepository,
-		VisitRepository: visitRepository,
+		queries: queries,
+		service: s.NewVisitService(queries),
 	}
 }
 
@@ -31,7 +30,7 @@ func (h *VisitHandler) Redirect(c *gin.Context) {
 	}
 
 	// Получили ссылку по short name
-	link, err := h.LinkRepository.GetLinkByShortName(c.Request.Context(), shortName)
+	link, err := h.queries.GetLinkByShortName(c.Request.Context(), shortName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 		return
@@ -46,7 +45,7 @@ func (h *VisitHandler) Redirect(c *gin.Context) {
 	status := http.StatusFound
 
 	// создаем визит
-	_, err = h.VisitRepository.Create(c.Request.Context(), visitsdb.CreateVisitParams{
+	_, err = h.queries.CreateVisit(c.Request.Context(), generated.CreateVisitParams{
 		LinkID:    link.ID,
 		Ip:        ip,
 		UserAgent: userAgent,
@@ -63,10 +62,10 @@ func (h *VisitHandler) Redirect(c *gin.Context) {
 
 func (h *VisitHandler) GetVisits(c *gin.Context) {
 	// Парсим параметры
-	startRange, endRange, hasRange := h.parseRangeParam(c)
+	startRange, endRange, hasRange := h.service.ParseRangeParam(c)
 
 	// Получаем общее количество
-	totalCount, err := h.VisitRepository.GetVisitsCount(c.Request.Context())
+	totalCount, err := h.queries.GetVisitsCount(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to get total count: " + err.Error(),
@@ -75,7 +74,7 @@ func (h *VisitHandler) GetVisits(c *gin.Context) {
 	}
 
 	// Корректируем значения
-	offset, limit, newStart, newEnd := h.calculatePagination(startRange, endRange, hasRange, totalCount)
+	offset, limit, newStart, newEnd := h.service.CalculatePagination(startRange, endRange, hasRange, totalCount)
 
 	// Устанавливаем заголовок
 	contentRange := fmt.Sprintf("visits %d-%d/%d", newStart, newEnd, totalCount)
@@ -83,17 +82,17 @@ func (h *VisitHandler) GetVisits(c *gin.Context) {
 
 	// Если limit == 0, возвращаем пустой массив
 	if limit == 0 {
-		c.JSON(http.StatusOK, []visitsdb.LinkVisit{})
+		c.JSON(http.StatusOK, []generated.LinkVisit{})
 		return
 	}
 
 	// Получаем данные
-	params := visitsdb.GetVisitsParams{
+	params := generated.GetVisitsParams{
 		Limit:  limit,
 		Offset: offset,
 	}
 
-	res, err := h.VisitRepository.GetVisits(c.Request.Context(), params)
+	res, err := h.queries.GetVisits(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed get visits: " + err.Error(),
@@ -102,9 +101,9 @@ func (h *VisitHandler) GetVisits(c *gin.Context) {
 	}
 
 	// Преобразуем в response DTO
-	response := make([]visitsdb.LinkVisit, len(res))
+	response := make([]generated.LinkVisit, len(res))
 	for i, visit := range res {
-		response[i] = visitsdb.LinkVisit{
+		response[i] = generated.LinkVisit{
 			ID:        visit.ID,
 			LinkID:    visit.LinkID,
 			CreatedAt: visit.CreatedAt,
@@ -117,94 +116,3 @@ func (h *VisitHandler) GetVisits(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
-
-// parseRangeParam парсит параметр range и возвращает start, end и флаг наличия
-func (h *VisitHandler) parseRangeParam(c *gin.Context) (start, end int64, hasRange bool) {
-	rangeParam := c.Query("range")
-	if rangeParam == "" {
-		return 0, 9, false // default: первые 10 записей (0-9)
-	}
-
-	trimmed := strings.Trim(rangeParam, "[]")
-	parts := strings.Split(trimmed, ",")
-
-	if len(parts) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid range format, expected [start,end]",
-		})
-		return 0, 0, true
-	}
-
-	var err1, err2 error
-	start, err1 = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	end, err2 = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-
-	if err1 != nil || err2 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid range values, expected numbers",
-		})
-		return 0, 0, true
-	}
-
-	if start < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "start must be >= 0",
-		})
-		return 0, 0, true
-	}
-
-	if end <= start {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "end must be greater than start",
-		})
-		return 0, 0, true
-	}
-
-	return start, end, true
-}
-
-// calculatePagination вычисляет offset, limit и скорректированные start/end
-func (h *VisitHandler) calculatePagination(startRange, endRange int64, hasRange bool, totalCount int64) (offset, limit int32, newStart, newEnd int64) {
-	if hasRange {
-		if totalCount == 0 {
-			return 0, 0, 0, 0
-		}
-
-		if endRange >= totalCount {
-			endRange = totalCount - 1
-		}
-
-		if startRange <= endRange {
-			//nolint:gosec // G115: startRange не может превышать int32, так как это индекс в БД
-			offset = int32(startRange)
-
-			limitVal := endRange - startRange + 1
-			//nolint:gosec // G115: limitVal не может превышать int32, так как это количество записей в диапазоне
-			limit = int32(limitVal)
-
-			newStart = startRange + 1
-			newEnd = endRange + 1
-
-			return offset, limit, newStart, newEnd
-		}
-
-		return 0, 0, startRange + 1, 0
-	}
-
-	if totalCount == 0 {
-		return 0, 0, 0, 0
-	}
-
-	limit = 10
-	if totalCount < 10 {
-		//nolint:gosec // G115: totalCount не может превышать int32, так как это количество записей в БД
-		limit = int32(totalCount)
-	}
-
-	offset = 0
-	newStart = 1
-	newEnd = int64(limit)
-
-	return offset, limit, newStart, newEnd
-}
-*/

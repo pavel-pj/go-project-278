@@ -29,7 +29,7 @@ func NewLinkHandler(queries *generated.Queries, service *s.LinkService) *LinkHan
 	return &LinkHandler{
 		queries:   queries,
 		validator: validator.New(),
-		service:   s.NewLinkService(),
+		service:   s.NewLinkService(queries),
 	}
 }
 
@@ -145,169 +145,168 @@ func (h *LinkHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
-/*
-	func (h *LinkHandler) UpdateLink(c *gin.Context) {
-			idParam := c.Param("id")
-			id64, err := strconv.ParseInt(idParam, 10, 32)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid ID format",
-					"hint":  "ID must be a number",
-				})
-				return
-			}
+func (h *LinkHandler) UpdateLink(c *gin.Context) {
+	idParam := c.Param("id")
+	id64, err := strconv.ParseInt(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid ID format",
+			"hint":  "ID must be a number",
+		})
+		return
+	}
 
-			id := int32(id64)
+	id := int32(id64)
 
-			_, err = h.repository.GetLink(c.Request.Context(), id)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					c.JSON(http.StatusNotFound, gin.H{
-						"error": "link not found",
-					})
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": err.Error(),
-				})
-				return
-			}
-
-			var req dto.UpdateLinkRequest
-
-			// Валидируем JSON
-			if err := c.ShouldBindJSON(&req); err != nil {
-				var validationErrors validator.ValidationErrors
-				if errors.As(err, &validationErrors) {
-					HandleValidationErrors(c, validationErrors)
-					return
-				}
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "invalid request",
-				})
-				return
-			}
-
-			// Дополнительная валидация
-			if err := h.validator.Struct(req); err != nil {
-				var validationErrors validator.ValidationErrors
-				if errors.As(err, &validationErrors) {
-					HandleValidationErrors(c, validationErrors)
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "validation failed",
-				})
-				return
-			}
-
-			if req.OriginalUrl != nil {
-				// проверка на уникальность адреса
-				_, err := h.repository.GetLinkByOriginURLExludedID(c.Request.Context(),
-					linksdb.GetLinkByOriginURLExludedIDParams{
-						ID:          id,
-						OriginalUrl: *req.OriginalUrl,
-					})
-
-				if err == nil {
-					c.JSON(http.StatusConflict, gin.H{
-						"errors": map[string]string{
-							"original_url": "this URL already has a shortened version",
-						},
-					})
-					return
-				}
-			}
-
-			if req.ShortName != nil {
-				// проверка на уникальность shortName
-				_, err := h.repository.GetLinkByShortNameExludedID(
-					c.Request.Context(),
-					linksdb.GetLinkByShortNameExcluedeIDParams{
-						ID:        id,
-						ShortName: *req.ShortName,
-					})
-
-				if err == nil {
-					c.JSON(http.StatusConflict, gin.H{
-						"errors": map[string]string{
-							"short_name": "short name already in use",
-						},
-					})
-					return
-				}
-			}
-
-			// Подготовка параметров для обновления
-			updateParams := linksdb.UpdateLinkParams{
-				ID: id,
-			}
-
-			// Устанавливаем значения только если они были переданы
-			if req.OriginalUrl != nil {
-				updateParams.OriginalUrl = sql.NullString{
-					String: *req.OriginalUrl,
-					Valid:  true,
-				}
-			}
-
-			if req.ShortName != nil {
-				updateParams.ShortName = sql.NullString{
-					String: *req.ShortName,
-					Valid:  true,
-				}
-
-				// Генерируем новый short_url
-				baseSite := os.Getenv("BASE_SITE")
-				if baseSite == "" {
-					baseSite = "https://base-site.com"
-				}
-				baseSite = strings.TrimSuffix(baseSite, "/")
-
-				updateParams.ShortUrl = sql.NullString{
-					String: baseSite + "/r/" + *req.ShortName,
-					Valid:  true,
-				}
-
-			}
-
-			updateLink, err := h.repository.UpdateLink(c.Request.Context(), updateParams)
-
-			if err != nil {
-				// Обработка ошибки уникальности
-				var pqErr *pq.Error
-				if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-					if strings.Contains(pqErr.Message, "original_url") {
-						c.JSON(http.StatusConflict, gin.H{
-							"errors": map[string]string{
-								"original_url": "this URL already has a shortened version",
-							},
-						})
-					} else if strings.Contains(pqErr.Message, "short_name") {
-						c.JSON(http.StatusConflict, gin.H{
-							"errors": map[string]string{
-								"short_name": "short name already in use",
-							},
-						})
-					}
-					return
-				}
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"details": fmt.Sprintf("%s", err),
-				})
-				return
-			}
-
-			response := dto.LinkResponse{
-				ID:          updateLink.ID,
-				OriginalUrl: updateLink.OriginalUrl,
-				ShortName:   updateLink.ShortName,
-				ShortUrl:    updateLink.ShortUrl,
-			}
-
-			c.JSON(http.StatusOK, response)
+	_, err = h.queries.GetLink(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "link not found",
+			})
+			return
 		}
-*/
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var req dto.UpdateLinkRequest
+
+	// Валидируем JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid request",
+		})
+		return
+	}
+
+	// Дополнительная валидация
+	if err := h.validator.Struct(req); err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			HandleValidationErrors(c, validationErrors)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "validation failed",
+		})
+		return
+	}
+
+	if req.OriginalUrl != nil {
+		// проверка на уникальность адреса
+		_, err := h.queries.GetLinkByOriginURLExludedID(c.Request.Context(),
+			generated.GetLinkByOriginURLExludedIDParams{
+				ID:          id,
+				OriginalUrl: *req.OriginalUrl,
+			})
+
+		if err == nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"errors": map[string]string{
+					"original_url": "this URL already has a shortened version",
+				},
+			})
+			return
+		}
+	}
+
+	if req.ShortName != nil {
+		// проверка на уникальность shortName
+		_, err := h.queries.GetLinkByShortNameExcludeID(
+			c.Request.Context(),
+			generated.GetLinkByShortNameExcludeIDParams{
+				ID:        id,
+				ShortName: *req.ShortName,
+			})
+
+		if err == nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"errors": map[string]string{
+					"short_name": "short name already in use",
+				},
+			})
+			return
+		}
+	}
+
+	// Подготовка параметров для обновления
+	updateParams := generated.UpdateLinkParams{
+		ID: id,
+	}
+
+	// Устанавливаем значения только если они были переданы
+	if req.OriginalUrl != nil {
+		updateParams.OriginalUrl = sql.NullString{
+			String: *req.OriginalUrl,
+			Valid:  true,
+		}
+	}
+
+	if req.ShortName != nil {
+		updateParams.ShortName = sql.NullString{
+			String: *req.ShortName,
+			Valid:  true,
+		}
+
+		// Генерируем новый short_url
+		baseSite := os.Getenv("BASE_SITE")
+		if baseSite == "" {
+			baseSite = "https://base-site.com"
+		}
+		baseSite = strings.TrimSuffix(baseSite, "/")
+
+		updateParams.ShortUrl = sql.NullString{
+			String: baseSite + "/r/" + *req.ShortName,
+			Valid:  true,
+		}
+
+	}
+
+	updateLink, err := h.queries.UpdateLink(c.Request.Context(), updateParams)
+
+	if err != nil {
+		// Обработка ошибки уникальности
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			if strings.Contains(pqErr.Message, "original_url") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"original_url": "this URL already has a shortened version",
+					},
+				})
+			} else if strings.Contains(pqErr.Message, "short_name") {
+				c.JSON(http.StatusConflict, gin.H{
+					"errors": map[string]string{
+						"short_name": "short name already in use",
+					},
+				})
+			}
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"details": fmt.Sprintf("%s", err),
+		})
+		return
+	}
+
+	response := dto.LinkResponse{
+		ID:          updateLink.ID,
+		OriginalUrl: updateLink.OriginalUrl,
+		ShortName:   updateLink.ShortName,
+		ShortUrl:    updateLink.ShortUrl,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 func (h *LinkHandler) GetAllLinks(c *gin.Context) {
 
 	// Парсим параметры
