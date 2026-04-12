@@ -42,18 +42,19 @@ jobs:
       
       # Применение миграций к тестовой БД
       - name: Run migrations
-        run:
-          make goose-test-up
-        env:
-          GOOSE_DRIVER: postgres
+        run: |
+          goose -dir ./internal/db/migrations postgres "postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable" up
       
-      # Запуск тестов
+      # Запуск тестов (напрямую, не через make test)
       - name: Test
         env:
-          # ИСПРАВЛЕНО: используем те же креды, что и в services
           TEST_DATABASE_URL: postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable
           BASE_SITE: https://shorter.com
           DB_USER_TEST: golang_test
           DB_PASSWORD_TEST: secret_test
           DB_TEST_NAME: app_test
-        run: make test
+          DOCKER_ENV: "false"  # Явно указываем, что не в Docker
+          DB_TEST_HOST: localhost
+          DB_TEST_PORT: 5432
+        run: |
+          go test -v -tags=integration ./handlers/...
