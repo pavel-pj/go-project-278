@@ -36,40 +36,42 @@ func InitTestDB() {
 		log.Println("No .env file found, using defaults or CI env vars")
 	}
 
-	// Определяем, запущены ли тесты в Docker
-	inDocker := os.Getenv("DOCKER_ENV") == "true"
-
-	// Получаем параметры тестовой БД
+	// Пытаемся получить параметры тестовой БД
 	dbUser := os.Getenv("DB_USER_TEST")
-	if dbUser == "" {
-		dbUser = "golang_test"
-	}
 	dbPassword := os.Getenv("DB_PASSWORD_TEST")
-	if dbPassword == "" {
-		dbPassword = "secret_test"
-	}
 	dbName := os.Getenv("DB_TEST_NAME")
-	if dbName == "" {
-		dbName = "app_test"
-	}
-
-	// Хост: в Docker используем имя сервиса, локально - localhost
 	dbHost := os.Getenv("DB_TEST_HOST")
+	dbPort := os.Getenv("DB_TEST_PORT")
+
+	// Если нет тестовой БД - используем основную
+	if dbUser == "" {
+		dbUser = os.Getenv("DB_USER")
+		if dbUser == "" {
+			dbUser = "golang"
+		}
+	}
+	if dbPassword == "" {
+		dbPassword = os.Getenv("DB_PASSWORD")
+		if dbPassword == "" {
+			dbPassword = "secret"
+		}
+	}
+	if dbName == "" {
+		dbName = os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "app"
+		}
+	}
 	if dbHost == "" {
-		if inDocker {
-			dbHost = "postgres_test" // Имя сервиса в docker-compose
-		} else {
+		dbHost = os.Getenv("DB_HOST")
+		if dbHost == "" {
 			dbHost = "localhost"
 		}
 	}
-
-	// Порт: в Docker стандартный 5432, локально может быть 5501
-	dbPort := os.Getenv("DB_TEST_PORT")
 	if dbPort == "" {
-		if inDocker {
+		dbPort = os.Getenv("DB_PORT")
+		if dbPort == "" {
 			dbPort = "5432"
-		} else {
-			dbPort = "5501"
 		}
 	}
 
@@ -92,12 +94,6 @@ func InitTestDB() {
 	// Находим путь к миграциям
 	_, filename, _, _ := runtime.Caller(0)
 	migrationsDir := filepath.Join(filepath.Dir(filename), "../db/migrations")
-
-	// Делаем путь абсолютным для Docker
-	if inDocker {
-		// В Docker проект монтируется в /app
-		migrationsDir = "/app/db/migrations"
-	}
 
 	log.Printf("Migrations directory: %s", migrationsDir)
 
