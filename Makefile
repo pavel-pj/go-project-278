@@ -4,8 +4,8 @@
 include .env
 export
 
-MIGRATIONS_DIR=./internal/db/migrations
-GOOSE_DIR=/app/internal/db/migrations   
+MIGRATIONS_DIR=./db/migrations
+GOOSE_DIR=/app/db/migrations   
 DB_URL_DOCKER=postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)?sslmode=disable
 TEST_DB_URL_DOCKER=postgres://$(DB_USER_TEST):$(DB_PASSWORD_TEST)@postgres_test:5432/$(DB_TEST_NAME)?sslmode=disable
 

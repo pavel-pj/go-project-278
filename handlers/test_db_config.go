@@ -91,12 +91,12 @@ func InitTestDB() {
 
 	// Находим путь к миграциям
 	_, filename, _, _ := runtime.Caller(0)
-	migrationsDir := filepath.Join(filepath.Dir(filename), "../internal/db/migrations")
+	migrationsDir := filepath.Join(filepath.Dir(filename), "../db/migrations")
 
 	// Делаем путь абсолютным для Docker
 	if inDocker {
 		// В Docker проект монтируется в /app
-		migrationsDir = "/app/internal/db/migrations"
+		migrationsDir = "/app/db/migrations"
 	}
 
 	log.Printf("Migrations directory: %s", migrationsDir)
