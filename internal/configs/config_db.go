@@ -27,7 +27,7 @@ func Load() (*Config, error) {
 		DBUser:     getEnv("DB_USER", "golang"),
 		DBPassword: getEnv("DB_PASSWORD", "secret"),
 		DBName:     getEnv("DB_NAME", "app"),
-		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBHost:     getEnv("DB_HOST", "postgres"),
 		DBPort:     getEnv("DB_PORT", "5432"),
 	}
 
