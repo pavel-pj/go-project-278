@@ -22,7 +22,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create app: ", err)
 	}
-	defer application.Close()
+	defer func() {
+		if err := application.Close(); err != nil {
+			log.Printf("Warning: failed to close app: %v", err)
+		}
+	}()
 
 	router := r.NewRouter(application)
 

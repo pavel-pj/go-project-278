@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -19,7 +20,7 @@ type Config struct {
 func Load() (*Config, error) {
 	// Загружаем .env файл
 	if err := godotenv.Load(); err != nil {
-		// Не фатально, может быть в CI/CD переменные уже установлены
+		log.Println("Warning: .env file not found, using environment variables")
 	}
 
 	cfg := &Config{
