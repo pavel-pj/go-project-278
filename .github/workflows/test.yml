@@ -43,7 +43,7 @@ jobs:
       # Применение миграций к тестовой БД
       - name: Run migrations
         run: |
-          goose -dir ./internal/db/migrations postgres "postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable" up
+          goose -dir ./db/migrations postgres "postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable" up
       
       # Запуск тестов (напрямую, не через make test)
       - name: Test
