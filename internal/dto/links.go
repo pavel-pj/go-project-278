@@ -2,9 +2,10 @@
 package dto
 
 import (
-	"database/sql"
 	"db200/internal/db/generated"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AllLinkRequest - структура для Index запроса
@@ -49,25 +50,24 @@ type UpdateLinkRequest struct {
 func (r *UpdateLinkRequest) ToUpdateLinkParams(linkID int32) generated.UpdateLinkParams {
 	params := generated.UpdateLinkParams{
 		ID:          linkID,
-		OriginalUrl: sql.NullString{String: "", Valid: false},
-		ShortName:   sql.NullString{String: "", Valid: false},
+		OriginalUrl: pgtype.Text{Valid: false}, // ← Используем pgtype.Text
+		ShortName:   pgtype.Text{Valid: false}, // ← Используем pgtype.Text
 	}
 
 	// Проверяем, что поле присутствует и не пустое
 	if r.OriginalUrl != nil {
-		params.OriginalUrl = sql.NullString{
+		params.OriginalUrl = pgtype.Text{
 			String: *r.OriginalUrl,
 			Valid:  true,
 		}
 	}
 
 	if r.ShortName != nil {
-		params.ShortName = sql.NullString{
+		params.ShortName = pgtype.Text{
 			String: *r.ShortName,
 			Valid:  true,
 		}
 	}
 
 	return params
-
 }

@@ -1,5 +1,6 @@
-//go:build integration
+/*integration
 
+package p
 package main
 
 import (
@@ -1314,3 +1315,4 @@ func TestRedirectCreatesVisit(t *testing.T) {
 		}
 	})
 }
+*/

@@ -2,33 +2,32 @@ package main
 
 import (
 	"db200/internal/app"
-	d "db200/internal/db"
+	"db200/internal/configs"
 	r "db200/router"
 	"log"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
-
-	db, err := d.Connect()
+	// Загружаем конфиг
+	cfg, err := configs.Load()
 	if err != nil {
-		log.Fatal("Database Error: ", err)
+		log.Printf("Warning: failed to load config: %v", err)
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Warning: failed to close database connection: %v", err)
-		}
-	}()
 
-	app := app.NewApp(db)
-	router := r.NewRouter(app)
+	// Получаем URL из конфига
+	dbURL := cfg.GetDBURL()
 
-	// Run server (blocks until stopped)
+	// Создаём приложение (NewApp должен принимать URL)
+	application, err := app.NewApp(dbURL)
+	if err != nil {
+		log.Fatal("Failed to create app: ", err)
+	}
+	defer application.Close()
+
+	router := r.NewRouter(application)
+
+	// Запускаем сервер
 	if err := router.Run(":8080"); err != nil {
 		log.Printf("Server failed to start: %v", err)
-		// Дефер закроет БД автоматически перед выходом
-		return
 	}
-
 }

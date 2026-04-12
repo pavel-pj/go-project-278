@@ -2,40 +2,58 @@ name: Tests
 
 on:
   push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main,dev]
+    branches:
+      - '**'
+    tags:
+      - '**'
 
 jobs:
-  test:
-    name: Integration Tests
+  lint-and-test:
     runs-on: ubuntu-latest
     
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: golang_test
+          POSTGRES_PASSWORD: secret_test
+          POSTGRES_DB: app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U golang_test -d app_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.24'
-        
-    - name: Download dependencies
-      run: |
-        go mod download
-        go mod verify
-        
-    - name: Run tests with testcontainers
-      run: |
-        go test -v -tags=integration -timeout 10m ./...
-      env:
-        BASE_SITE: https://test.com
-        
-    - name: Upload test coverage
-      if: always()
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
-        fail_ci_if_error: false
-
- 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: go.sum
+      
+      # Установка goose для миграций
+      - name: Install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@latest
+      
+      # Применение миграций к тестовой БД
+      - name: Run migrations
+        run: |
+          goose -dir ./internal/db/migrations postgres "postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable" up
+        env:
+          GOOSE_DRIVER: postgres
+      
+      # Запуск тестов
+      - name: Test
+        env:
+          # ИСПРАВЛЕНО: используем те же креды, что и в services
+          TEST_DATABASE_URL: postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable
+          BASE_SITE: https://shorter.com
+          DB_USER_TEST: golang_test
+          DB_PASSWORD_TEST: secret_test
+          DB_TEST_NAME: app_test
+        run: make test

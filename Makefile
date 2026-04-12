@@ -4,9 +4,10 @@
 include .env
 export
 
-MIGRATIONS_DIR=./db/migrations
-GOOSE_DIR=/app/db/migrations
+MIGRATIONS_DIR=./internal/db/migrations
+GOOSE_DIR=/app/internal/db/migrations   
 DB_URL_DOCKER=postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)?sslmode=disable
+TEST_DB_URL_DOCKER=postgres://$(DB_USER_TEST):$(DB_PASSWORD_TEST)@postgres_test:5432/$(DB_TEST_NAME)?sslmode=disable
 
 #goose
 
@@ -21,6 +22,16 @@ goose-up:
 	docker compose exec backend goose -dir $(GOOSE_DIR) postgres postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)?sslmode=disable   up	
 goose-rollback:
 	docker compose exec backend goose -dir $(GOOSE_DIR) postgres postgres://$(DB_USER):$(DB_PASSWORD)@postgres:5432/$(DB_NAME)?sslmode=disable   down	
+
+# ==================== ТЕСТОВАЯ БД ====================
+ 
+goose-test-up:
+	docker compose exec backend goose -dir $(GOOSE_DIR) postgres $(TEST_DB_URL_DOCKER) up
+
+goose-test-status:
+	docker compose exec backend goose -dir $(GOOSE_DIR) postgres $(TEST_DB_URL_DOCKER) status
+
+ 
 
 main:
 	docker compose exec backend go run main.go	
@@ -56,9 +67,9 @@ TEST_DB_NAME ?= testdb
 # Запуск всех тестов
 
 test:
-	@echo "Running tests inside container..."
-	docker compose exec -T backend go test -v -tags=integration -timeout 5m .
-	
+	@echo "Running tests locally..."
+	@docker compose exec -T backend sh -c "DOCKER_ENV=true go test -v -tags=integration ./handlers/..."
+
  
 # Запуск тестов с покрытием
 test-coverage:

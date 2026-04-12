@@ -5,8 +5,7 @@
 package generated
 
 import (
-	"database/sql"
-	"time"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Link struct {
@@ -14,13 +13,13 @@ type Link struct {
 	OriginalUrl string
 	ShortName   string
 	ShortUrl    string
-	CreatedAt   sql.NullTime
+	CreatedAt   pgtype.Timestamptz
 }
 
 type LinkVisit struct {
 	ID        int32
 	LinkID    int32
-	CreatedAt time.Time
+	CreatedAt pgtype.Timestamptz
 	Ip        string
 	UserAgent string
 	Status    int32

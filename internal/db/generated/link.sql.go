@@ -7,7 +7,8 @@ package generated
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createLink = `-- name: CreateLink :one
@@ -23,7 +24,7 @@ type CreateLinkParams struct {
 }
 
 func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
+	row := q.db.QueryRow(ctx, createLink, arg.OriginalUrl, arg.ShortName, arg.ShortUrl)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -40,7 +41,7 @@ DELETE from links where id =$1
 `
 
 func (q *Queries) DeleteLink(ctx context.Context, id int32) error {
-	_, err := q.db.ExecContext(ctx, deleteLink, id)
+	_, err := q.db.Exec(ctx, deleteLink, id)
 	return err
 }
 
@@ -56,7 +57,7 @@ type GetAllLinksParams struct {
 }
 
 func (q *Queries) GetAllLinks(ctx context.Context, arg GetAllLinksParams) ([]Link, error) {
-	rows, err := q.db.QueryContext(ctx, getAllLinks, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getAllLinks, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +76,6 @@ func (q *Queries) GetAllLinks(ctx context.Context, arg GetAllLinksParams) ([]Lin
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -89,7 +87,7 @@ SELECT id, original_url, short_name, short_url, created_at FROM links where id =
 `
 
 func (q *Queries) GetLink(ctx context.Context, id int32) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLink, id)
+	row := q.db.QueryRow(ctx, getLink, id)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -106,7 +104,7 @@ SELECT id, original_url, short_name, short_url, created_at FROM links where orig
 `
 
 func (q *Queries) GetLinkByOriginURL(ctx context.Context, originalUrl string) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByOriginURL, originalUrl)
+	row := q.db.QueryRow(ctx, getLinkByOriginURL, originalUrl)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -130,7 +128,7 @@ type GetLinkByOriginURLExludedIDParams struct {
 }
 
 func (q *Queries) GetLinkByOriginURLExludedID(ctx context.Context, arg GetLinkByOriginURLExludedIDParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByOriginURLExludedID, arg.OriginalUrl, arg.ID)
+	row := q.db.QueryRow(ctx, getLinkByOriginURLExludedID, arg.OriginalUrl, arg.ID)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -147,7 +145,7 @@ SELECT id, original_url, short_name, short_url, created_at FROM links where shor
 `
 
 func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByShortName, shortName)
+	row := q.db.QueryRow(ctx, getLinkByShortName, shortName)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -171,7 +169,7 @@ type GetLinkByShortNameExcludeIDParams struct {
 }
 
 func (q *Queries) GetLinkByShortNameExcludeID(ctx context.Context, arg GetLinkByShortNameExcludeIDParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByShortNameExcludeID, arg.ShortName, arg.ID)
+	row := q.db.QueryRow(ctx, getLinkByShortNameExcludeID, arg.ShortName, arg.ID)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -188,7 +186,7 @@ SELECT count(id) FROM links
 `
 
 func (q *Queries) GetLinksCount(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getLinksCount)
+	row := q.db.QueryRow(ctx, getLinksCount)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -204,14 +202,14 @@ RETURNING id, original_url, short_name, short_url, created_at
 `
 
 type UpdateLinkParams struct {
-	OriginalUrl sql.NullString
-	ShortName   sql.NullString
-	ShortUrl    sql.NullString
+	OriginalUrl pgtype.Text
+	ShortName   pgtype.Text
+	ShortUrl    pgtype.Text
 	ID          int32
 }
 
 func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, updateLink,
+	row := q.db.QueryRow(ctx, updateLink,
 		arg.OriginalUrl,
 		arg.ShortName,
 		arg.ShortUrl,

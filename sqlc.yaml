@@ -6,6 +6,6 @@ sql:
     queries: "internal/db/queries"
     gen:
       go:
-        #sql_package: "pgx/v5"
+        sql_package: "pgx/v5"
         out: "internal/db/generated" 
  

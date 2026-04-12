@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"strings"
 
-	//r "db200/repositories"
 	s "db200/internal/services"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/lib/pq"
 )
 
@@ -237,21 +237,24 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		}
 	}
 
-	// Подготовка параметров для обновления
+	// Подготовка параметров для обновления - ИСПРАВЛЕНО!
 	updateParams := generated.UpdateLinkParams{
-		ID: id,
+		ID:          id,
+		OriginalUrl: pgtype.Text{Valid: false}, // ← Используем pgtype.Text
+		ShortName:   pgtype.Text{Valid: false}, // ← Используем pgtype.Text
+		ShortUrl:    pgtype.Text{Valid: false}, // ← Добавляем ShortUrl
 	}
 
 	// Устанавливаем значения только если они были переданы
 	if req.OriginalUrl != nil {
-		updateParams.OriginalUrl = sql.NullString{
+		updateParams.OriginalUrl = pgtype.Text{
 			String: *req.OriginalUrl,
 			Valid:  true,
 		}
 	}
 
 	if req.ShortName != nil {
-		updateParams.ShortName = sql.NullString{
+		updateParams.ShortName = pgtype.Text{
 			String: *req.ShortName,
 			Valid:  true,
 		}
@@ -263,11 +266,10 @@ func (h *LinkHandler) UpdateLink(c *gin.Context) {
 		}
 		baseSite = strings.TrimSuffix(baseSite, "/")
 
-		updateParams.ShortUrl = sql.NullString{
+		updateParams.ShortUrl = pgtype.Text{
 			String: baseSite + "/r/" + *req.ShortName,
 			Valid:  true,
 		}
-
 	}
 
 	updateLink, err := h.queries.UpdateLink(c.Request.Context(), updateParams)

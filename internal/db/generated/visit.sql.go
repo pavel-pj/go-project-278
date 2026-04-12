@@ -24,7 +24,7 @@ type CreateVisitParams struct {
 }
 
 func (q *Queries) CreateVisit(ctx context.Context, arg CreateVisitParams) (LinkVisit, error) {
-	row := q.db.QueryRowContext(ctx, createVisit,
+	row := q.db.QueryRow(ctx, createVisit,
 		arg.LinkID,
 		arg.Ip,
 		arg.UserAgent,
@@ -55,7 +55,7 @@ type GetVisitsParams struct {
 }
 
 func (q *Queries) GetVisits(ctx context.Context, arg GetVisitsParams) ([]LinkVisit, error) {
-	rows, err := q.db.QueryContext(ctx, getVisits, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getVisits, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +76,6 @@ func (q *Queries) GetVisits(ctx context.Context, arg GetVisitsParams) ([]LinkVis
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -90,7 +87,7 @@ SELECT count(id) FROM link_visits
 `
 
 func (q *Queries) GetVisitsCount(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getVisitsCount)
+	row := q.db.QueryRow(ctx, getVisitsCount)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
