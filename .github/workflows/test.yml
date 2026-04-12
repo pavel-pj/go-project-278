@@ -8,7 +8,7 @@ on:
       - '**'
 
 jobs:
-  lint-and-test:
+  tests:
     runs-on: ubuntu-latest
     
     services:
@@ -42,8 +42,8 @@ jobs:
       
       # Применение миграций к тестовой БД
       - name: Run migrations
-        run: |
-          goose -dir ./internal/db/migrations postgres "postgres://golang_test:secret_test@localhost:5432/app_test?sslmode=disable" up
+        run:
+          make goose-test-up
         env:
           GOOSE_DRIVER: postgres
       
