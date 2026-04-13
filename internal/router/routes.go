@@ -1,8 +1,8 @@
 package router
 
 import (
-	h "db200/handlers"
 	"db200/internal/app"
+	h "db200/internal/handlers"
 
 	"github.com/gin-gonic/gin"
 )

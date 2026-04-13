@@ -68,7 +68,7 @@ TEST_DB_NAME ?= testdb
 
 test:
 	@echo "Running tests locally..."
-	@docker compose exec -T backend sh -c "DOCKER_ENV=true go test -v -tags=integration ./handlers/..."
+	@docker compose exec -T backend sh -c "DOCKER_ENV=true go test -v -tags=integration ./internal/handlers/..."
 
  
 # Запуск тестов с покрытием

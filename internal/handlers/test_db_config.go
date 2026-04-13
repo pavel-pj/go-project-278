@@ -32,7 +32,7 @@ func InitTestDB() {
 	gin.SetMode(gin.TestMode)
 
 	// Загружаем .env файл (если есть)
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("No .env file found, using defaults or CI env vars")
 	}
 
@@ -93,7 +93,7 @@ func InitTestDB() {
 
 	// Находим путь к миграциям
 	_, filename, _, _ := runtime.Caller(0)
-	migrationsDir := filepath.Join(filepath.Dir(filename), "../db/migrations")
+	migrationsDir := filepath.Join(filepath.Dir(filename), "../../db/migrations")
 
 	log.Printf("Migrations directory: %s", migrationsDir)
 
