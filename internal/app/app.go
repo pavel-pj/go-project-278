@@ -30,7 +30,7 @@ func NewApp(dbURL string) (*App, error) { // ← принимаем URL, а не
 
 	// Проверяем подключение
 	if err := pool.Ping(context.Background()); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf("SUPER ERROR failed to ping database: %w", err)
 	}
 
 	// Создаем queries (теперь совместимо!)
